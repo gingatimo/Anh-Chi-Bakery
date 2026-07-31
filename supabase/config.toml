@@ -251,6 +251,11 @@ pass = "env(RESEND_API_KEY)"
 admin_email = "no-reply@timoagency.com"
 sender_name = "Tiệm Bánh Anh Chi"
 
+# Email xác nhận đăng ký — template tiếng Việt (tông Tiệm Bánh Anh Chi).
+[auth.email.template.confirmation]
+subject = "Xác nhận email cho Tiệm Bánh Anh Chi 🧁"
+content_path = "./supabase/templates/confirmation.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"
