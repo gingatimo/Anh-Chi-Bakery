@@ -168,7 +168,11 @@ additional_redirect_urls = [
   "http://localhost:5174/**",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
-jwt_expiry = 3600
+# Phiên "dài": access token sống 1 TUẦN (tối đa cho phép) — ít phải refresh, chịu
+# offline tốt. Việc "giữ đăng nhập ~1 tháng+" do refresh token đảm nhiệm: client bật
+# persistSession+autoRefreshToken và rotation không đặt TTL → phiên bền tới khi đăng
+# xuất. ([auth.sessions] timebox/inactivity ép đăng xuất theo thời gian là bản Pro.)
+jwt_expiry = 604800
 # JWT issuer URL. If not set, defaults to auth.external_url.
 # jwt_issuer = ""
 # Path to JWT signing key. DO NOT commit your signing keys file to git.

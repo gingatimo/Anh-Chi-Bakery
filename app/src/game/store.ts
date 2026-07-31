@@ -1,6 +1,8 @@
 /**
  * store.ts — state machine "ngày bán hàng" + dữ liệu bền (Zustand + persist).
- * Local-first: mọi thứ lưu IndexedDB/localStorage; cloud là việc của M2 (9.3).
+ * DB là NGUỒN CHÂN LÝ: autosave đẩy mọi thay đổi lên Supabase; localStorage chỉ
+ * còn là cache tăng tốc (xem cloud/autosave.ts + cloud/sync.ts). Khi có phiên
+ * đăng nhập, App tải bản mới nhất từ DB (pullChild) ghi đè cache.
  * KHÔNG persist `plan` vì Question chứa hàm diagnose (không serialize được).
  */
 import { create } from 'zustand';

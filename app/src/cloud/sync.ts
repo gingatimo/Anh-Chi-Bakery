@@ -102,3 +102,24 @@ export function activateChild(row: ChildRow) {
   const snap = (row.save_state ?? {}) as Partial<S>;
   useGame.setState({ ...snap, childId: row.id, started: true, addingChild: false, phase: 'hub' });
 }
+
+/** Xoá hẳn hồ sơ một bé khỏi DB (dùng khi "chơi lại từ đầu"). */
+export async function deleteChild(childId: string, parentId: string): Promise<void> {
+  if (!supabase || !childId) return;
+  await supabase.from('child_profiles').delete().eq('id', childId).eq('parent_id', parentId);
+}
+
+/** Tải BẢN MỚI NHẤT của hồ sơ bé đang chơi từ DB (DB là nguồn chân lý). */
+export async function pullChild(childId: string, parentId: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase
+    .from('child_profiles')
+    .select('id, save_state')
+    .eq('id', childId)
+    .eq('parent_id', parentId)
+    .maybeSingle();
+  if (error || !data) return false;
+  const snap = (data.save_state ?? {}) as Partial<S>;
+  useGame.setState({ ...snap, childId: data.id, started: true });
+  return true;
+}

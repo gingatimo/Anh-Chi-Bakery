@@ -1,0 +1,32 @@
+/**
+ * autosave.ts — DB là NGUỒN CHÂN LÝ: mọi thay đổi dữ liệu bền tự lưu lên Supabase.
+ * localStorage chỉ còn là cache tăng tốc/chống mất khi offline.
+ * Chống dội: gộp các thay đổi trong 1.5s rồi mới đẩy một lần (đẩy đủ save_state).
+ */
+import { supabase } from './supabase';
+import { useGame } from '../game/store';
+import { pushSnapshot } from './sync';
+
+let timer: ReturnType<typeof setTimeout> | null = null;
+let inited = false;
+
+/** Bật tự-lưu-lên-DB. Gọi một lần khi app khởi động. */
+export function initAutosave() {
+  if (inited || !supabase) return;
+  inited = true;
+  useGame.subscribe(() => {
+    const s = useGame.getState();
+    if (!s.started || !s.childId) return; // chưa có hồ sơ bé đang chơi → chưa lưu
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const { data } = await supabase!.auth.getSession();
+      const uid = data.session?.user.id;
+      if (!uid) return; // phụ huynh chưa đăng nhập → chỉ giữ cache local
+      try {
+        await pushSnapshot(uid);
+      } catch {
+        /* offline / lỗi mạng — lần thay đổi kế tiếp sẽ thử lại */
+      }
+    }, 1500);
+  });
+}

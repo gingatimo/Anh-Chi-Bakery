@@ -10,6 +10,8 @@ import { BigButton, IconButton, Panel } from '../ui/kit';
 import { MapChar } from '../ui/MapChar';
 import { sfx } from '../ui/sfx';
 import { AccountSection } from './AccountSection';
+import { useSession } from '../cloud/auth';
+import { deleteChild } from '../cloud/sync';
 
 const REST_OPTIONS = [20, 30, 45];
 const SESSIONS: SessionPreset[] = ['ngan', 'vua', 'dai'];
@@ -206,6 +208,8 @@ function ParentPanel() {
   const toggleSound = useGame((s) => s.toggleSound);
   const toggleTheme = useGame((s) => s.toggleTheme);
   const resetAll = useGame((s) => s.resetAll);
+  const childId = useGame((s) => s.childId);
+  const { session } = useSession();
 
   function exportJson() {
     sfx.tap();
@@ -296,14 +300,16 @@ function ParentPanel() {
             <BigButton tone="butter" onClick={exportJson}>⬇︎ Xuất dữ liệu (JSON)</BigButton>
             <BigButton
               tone="rose"
-              onClick={() => {
-                if (confirm(`Xoá TOÀN BỘ tiến trình (ngày ${day}, ${stickers.length} sticker) và chơi lại từ đầu?`)) resetAll();
+              onClick={async () => {
+                if (!confirm(`Xoá TOÀN BỘ tiến trình (ngày ${day}, ${stickers.length} sticker) và chơi lại từ đầu?`)) return;
+                if (session && childId) await deleteChild(childId, session.user.id); // xoá cả trên DB
+                resetAll();
               }}
             >
               🗑 Xoá dữ liệu
             </BigButton>
           </div>
-          <p style={{ color: 'var(--text-soft)', fontSize: 13, marginTop: 12 }}>Dữ liệu lưu ngay trên máy này. Đồng bộ đám mây & thanh toán nằm ở bản đầy đủ.</p>
+          <p style={{ color: 'var(--text-soft)', fontSize: 13, marginTop: 12 }}>Dữ liệu được lưu trên đám mây (Supabase) và đồng bộ đa thiết bị. Thanh toán nằm ở bản đầy đủ.</p>
         </Panel>
       </div>
     </div>

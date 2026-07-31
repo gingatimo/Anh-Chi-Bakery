@@ -1,6 +1,8 @@
 /** Game.tsx — phase router của "ngày bán hàng". */
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGame } from './game/store';
+import { supabaseConfigured } from './cloud/supabase';
+import { useSession } from './cloud/auth';
 import { Welcome } from './screens/Welcome';
 import { Hub } from './screens/Hub';
 import { Serve } from './screens/Serve';
@@ -15,8 +17,13 @@ import { Parent } from './screens/Parent';
 export function Game() {
   const started = useGame((s) => s.started);
   const phase = useGame((s) => s.phase);
+  const { session } = useSession();
 
-  const view = !started ? 'welcome' : phase;
+  // DB-first: có Supabase mà CHƯA đăng nhập → luôn về màn đăng nhập, kể cả khi
+  // cache còn started=true. Không cho chơi bằng cache local khi chưa có phiên.
+  // (Không cấu hình Supabase → giữ local-first cho dev: chỉ phụ thuộc `started`.)
+  const needAuth = supabaseConfigured && !session;
+  const view = !started || needAuth ? 'welcome' : phase;
 
   const screen = (() => {
     switch (view) {
