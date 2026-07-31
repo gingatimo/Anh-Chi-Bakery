@@ -35,8 +35,8 @@ function resubscribe() {
   channel = supabase
     .channel(`child-${id}`, { config: { broadcast: { self: false } } })
     .on('broadcast', { event: 'approval' }, ({ payload }) => {
-      const tasks = (payload as { tasks?: Task[] } | null)?.tasks ?? [];
-      useGame.getState().applyApprovals(tasks);
+      const p = payload as { approvedToday?: string[]; tasks?: Task[] } | null;
+      useGame.getState().applyApprovals({ approvedToday: p?.approvedToday ?? [], tasks: p?.tasks ?? [] });
     })
     .subscribe();
 }
@@ -52,6 +52,7 @@ export function initRealtime() {
 /** Ba mẹ vừa duyệt nhiệm vụ → báo cho máy bé đang chơi (nếu đang online) cộng xu ngay.
  *  Gửi cả danh sách nhiệm vụ (nhỏ) để máy bé tự đối chiếu cái nào mới duyệt. */
 export function notifyApproval() {
-  if (!channel) return; // chưa có kênh (chưa đăng nhập / chưa chọn bé) → bỏ qua, DB vẫn lưu
-  channel.send({ type: 'broadcast', event: 'approval', payload: { tasks: useGame.getState().tasks } });
+  if (!channel) return; // chưa có kênh (chưa đăng nhập / chưa chọn bé) → bỏ qua, ledger vẫn lưu
+  const s = useGame.getState();
+  channel.send({ type: 'broadcast', event: 'approval', payload: { approvedToday: s.approvedToday, tasks: s.tasks } });
 }

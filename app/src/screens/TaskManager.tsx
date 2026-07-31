@@ -4,8 +4,9 @@
 import { useState } from 'react';
 import { useGame, gameDay } from '../game/store';
 import { TASK_TEMPLATES, TASK_EMOJIS } from '../game/taskTemplates';
-import { flushNow } from '../cloud/autosave';
+import { approveTaskReward, unapproveTaskReward } from '../cloud/sync';
 import { notifyApproval } from '../cloud/realtime';
+import { useSession } from '../cloud/auth';
 import { Panel, BigButton } from '../ui/kit';
 import { sfx } from '../ui/sfx';
 
@@ -14,11 +15,14 @@ const XU_OPTIONS = [5, 10, 15, 20];
 export function TaskManager() {
   const tasks = useGame((s) => s.tasks);
   const shopName = useGame((s) => s.shopName);
+  const childId = useGame((s) => s.childId);
+  const approvedToday = useGame((s) => s.approvedToday);
   const toggleTaskDone = useGame((s) => s.toggleTaskDone);
   const removeTask = useGame((s) => s.removeTask);
+  const { session } = useSession();
   const [adding, setAdding] = useState(false);
   const today = gameDay();
-  const pendingCount = tasks.filter((t) => t.lastDone !== today && t.raisedDay === today).length;
+  const pendingCount = tasks.filter((t) => !approvedToday.includes(t.id) && t.raisedDay === today).length;
 
   return (
     <Panel style={{ marginBottom: 16 }}>
@@ -37,7 +41,7 @@ export function TaskManager() {
 
       <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
         {tasks.map((t) => {
-          const done = t.lastDone === today;
+          const done = approvedToday.includes(t.id);
           const raised = !done && t.raisedDay === today;
           return (
             <div
@@ -64,9 +68,15 @@ export function TaskManager() {
               <button
                 onClick={() => {
                   sfx.coin();
-                  toggleTaskDone(t.id);
-                  void flushNow(); // đẩy credit lên DB ngay, không đợi debounce 1.5s
-                  notifyApproval(); // báo sống cho máy bé (broadcast) cộng xu ngay
+                  const approved = toggleTaskDone(t.id); // đổi LOCAL (approvedToday + rewardXu)
+                  const uid = session?.user.id;
+                  if (uid && childId) {
+                    // ghi LEDGER riêng (atomic) — KHÔNG đụng save_state của máy bé (Finding 1)
+                    void (approved
+                      ? approveTaskReward(childId, uid, t.id, t.xu, today)
+                      : unapproveTaskReward(childId, uid, t.id, today));
+                  }
+                  notifyApproval(); // báo sống cho máy bé (broadcast)
                 }}
                 style={{
                   padding: '9px 12px',

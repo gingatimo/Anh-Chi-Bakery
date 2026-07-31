@@ -5,7 +5,7 @@
  * bản đầy đủ (schema chuẩn hoá + hợp nhất theo bảng) là việc của M2 (9.4, 9.5).
  */
 import { supabase } from './supabase';
-import { useGame, resumePhase } from '../game/store';
+import { useGame, resumePhase, gameDay } from '../game/store';
 import { setLastChild } from './lastChild';
 
 type S = ReturnType<typeof useGame.getState>;
@@ -122,6 +122,10 @@ export async function deleteChild(childId: string, parentId: string): Promise<vo
   await supabase.from('child_profiles').delete().eq('id', childId).eq('parent_id', parentId);
 }
 
+/** Kết quả tải hồ sơ: thấy / không tồn tại (bé bị xoá, sai chủ) / lỗi mạng thoáng qua.
+ *  Phân biệt để caller KHÔNG xoá con trỏ resume chỉ vì mạng chập chờn (Finding 2). */
+export type PullResult = 'found' | 'missing' | 'error';
+
 /** Tải BẢN MỚI NHẤT của hồ sơ bé đang chơi từ DB (DB là nguồn chân lý).
  *  `resume`: bé VÀO CHƠI (từ Home) → khôi phục đúng màn đang dở + re-gate PIN.
  *  Không resume (đổi tab trong Khu phụ huynh) → GIỮ NGUYÊN phase hiện tại. */
@@ -129,17 +133,19 @@ export async function pullChild(
   childId: string,
   parentId: string,
   opts?: { resume?: boolean }
-): Promise<boolean> {
-  if (!supabase) return false;
+): Promise<PullResult> {
+  if (!supabase) return 'error';
   const { data, error } = await supabase
     .from('child_profiles')
     .select('id, save_state')
     .eq('id', childId)
     .eq('parent_id', parentId)
     .maybeSingle();
-  if (error || !data) return false;
+  if (error) return 'error'; // mạng/DB lỗi → KHÔNG kết luận bé không tồn tại
+  if (!data) return 'missing'; // bé bị xoá / khác chủ (RLS) → mới xoá con trỏ
   const snap = (data.save_state ?? {}) as Partial<S>;
-  const patch: Partial<S> = { ...snap, childId: data.id, started: true };
+  // resume = máy này CHƠI bé; không resume (đổi tab Khu phụ huynh) = QUẢN LÝ → managing.
+  const patch: Partial<S> = { ...snap, childId: data.id, started: true, managing: !opts?.resume };
   if (opts?.resume) {
     patch.phase = resumePhase(snap); // 'serve'/'lunch' nếu đang dở, else 'hub'
     patch.childUnlocked = false; // vào lại phải qua PIN riêng của bé (nếu có)
@@ -148,5 +154,51 @@ export async function pullChild(
     delete patch.phase; // đừng để phase của bé kéo phụ huynh ra khỏi Khu phụ huynh
   }
   useGame.setState(patch);
-  return true;
+  // Thưởng nhiệm vụ nằm ở ledger RIÊNG (play.task_rewards), không trong save_state →
+  // nạp lại: tổng xu thưởng + nhiệm vụ đã duyệt hôm nay.
+  useGame.setState(await loadRewards(data.id, parentId, gameDay()));
+  return 'found';
+}
+
+// ── Ledger THƯỞNG nhiệm vụ (Finding 1: tách khỏi save_state, atomic, chống cộng đôi) ──
+
+/** Ba mẹ DUYỆT → ghi 1 dòng thưởng (idempotent theo khoá child+task+day). */
+export async function approveTaskReward(childId: string, parentId: string, taskId: string, xu: number, day: string): Promise<void> {
+  if (!supabase || !childId) return;
+  await supabase
+    .from('task_rewards')
+    .upsert({ child_id: childId, parent_id: parentId, task_id: taskId, day, xu }, { onConflict: 'child_id,task_id,day', ignoreDuplicates: true });
+}
+
+/** Ba mẹ BỎ DUYỆT → xoá dòng thưởng của hôm nay. */
+export async function unapproveTaskReward(childId: string, parentId: string, taskId: string, day: string): Promise<void> {
+  if (!supabase || !childId) return;
+  await supabase.from('task_rewards').delete().eq('child_id', childId).eq('parent_id', parentId).eq('task_id', taskId).eq('day', day);
+}
+
+/** Nạp thưởng: TỔNG xu thưởng (mọi ngày) + id nhiệm vụ đã duyệt HÔM NAY. */
+export async function loadRewards(childId: string, parentId: string, today: string): Promise<{ rewardXu: number; approvedToday: string[] }> {
+  if (!supabase) return { rewardXu: 0, approvedToday: [] };
+  const { data, error } = await supabase.from('task_rewards').select('task_id, day, xu').eq('child_id', childId).eq('parent_id', parentId);
+  if (error || !data) return { rewardXu: 0, approvedToday: [] };
+  const rewardXu = data.reduce((n, r) => n + ((r.xu as number) ?? 0), 0);
+  const approvedToday = data.filter((r) => r.day === today).map((r) => r.task_id as string);
+  return { rewardXu, approvedToday };
+}
+
+/** Đẩy AN TOÀN từ máy QUẢN LÝ (ba mẹ): đọc lại save_state MỚI NHẤT của máy bé rồi CHỈ
+ *  chồng field quản lý (nhiệm vụ/cài đặt/PIN/tên) — GIỮ nguyên vị trí chơi/xu/level của
+ *  máy bé (Finding 1). Thưởng ở ledger riêng nên không đụng tới đây. */
+export async function pushManagement(parentId: string): Promise<void> {
+  if (!supabase) return;
+  const s = useGame.getState();
+  if (!s.childId) return;
+  const { data } = await supabase.from('child_profiles').select('save_state').eq('id', s.childId).eq('parent_id', parentId).maybeSingle();
+  const fresh = (data?.save_state ?? {}) as Record<string, unknown>;
+  const merged = { ...fresh, tasks: s.tasks, settings: s.settings, childPin: s.childPin, shopName: s.shopName };
+  await supabase
+    .from('child_profiles')
+    .update({ ten_hien_thi: s.shopName, ten_tiem: s.shopName, save_state: merged, updated_at: new Date().toISOString() })
+    .eq('id', s.childId)
+    .eq('parent_id', parentId);
 }

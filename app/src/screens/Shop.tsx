@@ -14,7 +14,7 @@ import { sfx } from '../ui/sfx';
 
 export function Shop() {
   const goto = useGame((s) => s.goto);
-  const xu = useGame((s) => s.xu);
+  const xu = useGame((s) => s.xu + s.rewardXu); // TỔNG xu tiêu được (chơi + thưởng)
   const inventory = useGame((s) => s.inventory);
   const placed = useGame((s) => s.placed);
   const buyFurniture = useGame((s) => s.buyFurniture);

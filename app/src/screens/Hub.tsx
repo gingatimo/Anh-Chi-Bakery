@@ -3,7 +3,7 @@
  * sticker, trang trí) vẫn mở — không bao giờ lấy lại thứ bé đã đạt. */
 import { useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { useGame, gameDay } from '../game/store';
+import { useGame } from '../game/store';
 import { flushNow } from '../cloud/autosave';
 import { clearLastChild } from '../cloud/lastChild';
 import { ShopScene } from '../assets/svg/Scene';
@@ -13,11 +13,12 @@ import { BigButton, IconButton, XuBadge, SpeechBubble } from '../ui/kit';
 
 export function Hub() {
   const shopName = useGame((s) => s.shopName);
-  const xu = useGame((s) => s.xu);
+  const xu = useGame((s) => s.xu + s.rewardXu); // TỔNG xu (chơi + thưởng nhiệm vụ)
   const day = useGame((s) => s.day);
   const placed = useGame((s) => s.placed);
   const stickers = useGame((s) => s.stickers);
   const tasks = useGame((s) => s.tasks);
+  const approvedToday = useGame((s) => s.approvedToday);
   const settings = useGame((s) => s.settings);
   const daily = useGame((s) => s.daily);
   const openShop = useGame((s) => s.openShop);
@@ -34,8 +35,7 @@ export function Hub() {
 
   void daily; // để re-render khi số lượt trong ngày đổi
   const closed = sessionsLeft() <= 0;
-  const today = gameDay();
-  const tasksTodo = tasks.filter((t) => t.lastDone !== today).length; // nhiệm vụ chưa xong hôm nay
+  const tasksTodo = tasks.filter((t) => !approvedToday.includes(t.id)).length; // nhiệm vụ chưa duyệt hôm nay
 
   const mapSays = closed
     ? 'Tiệm nghỉ hôm nay rồi, mai mình mở nhé!'

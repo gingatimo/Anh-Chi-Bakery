@@ -46,8 +46,8 @@ export function Home() {
     sfx.bell();
     try {
       // nạp bé từ DB + resume ngày đang dở (pullChild tự đặt phase serve/lunch/hub).
-      const ok = await pullChild(row.id, session.user.id, { resume: true });
-      if (!ok) goto('hub'); // pull lỗi (offline) → vào hub từ cache
+      const r = await pullChild(row.id, session.user.id, { resume: true });
+      if (r !== 'found') goto('hub'); // lỗi/không thấy → vào hub (fallback)
       // Game router → ChildLock nếu bé có PIN, rồi tới phase đã resume
     } finally {
       setBusy(false);

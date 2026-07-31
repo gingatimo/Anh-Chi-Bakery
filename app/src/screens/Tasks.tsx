@@ -8,21 +8,22 @@ import { IconButton, XuBadge, SpeechBubble } from '../ui/kit';
 import { sfx } from '../ui/sfx';
 
 type Status = 'done' | 'pending' | 'todo';
-function statusOf(t: Task, today: string): Status {
-  if (t.lastDone === today) return 'done';
+function statusOf(t: Task, today: string, approved: string[]): Status {
+  if (approved.includes(t.id)) return 'done';
   if (t.raisedDay === today) return 'pending';
   return 'todo';
 }
 
 export function Tasks() {
   const tasks = useGame((s) => s.tasks);
-  const xu = useGame((s) => s.xu);
+  const xu = useGame((s) => s.xu + s.rewardXu); // TỔNG xu tiêu được (chơi + thưởng)
+  const approvedToday = useGame((s) => s.approvedToday);
   const goto = useGame((s) => s.goto);
   const childRaiseTask = useGame((s) => s.childRaiseTask);
   const reduce = !!useReducedMotion();
   const today = gameDay();
 
-  const done = tasks.filter((t) => t.lastDone === today);
+  const done = tasks.filter((t) => approvedToday.includes(t.id));
   const earnedToday = done.reduce((n, t) => n + t.xu, 0);
   const allDone = tasks.length > 0 && done.length === tasks.length;
 
@@ -64,7 +65,7 @@ export function Tasks() {
             <TaskCard
               key={t.id}
               t={t}
-              status={statusOf(t, today)}
+              status={statusOf(t, today, approvedToday)}
               onRaise={() => {
                 sfx.pop();
                 childRaiseTask(t.id);

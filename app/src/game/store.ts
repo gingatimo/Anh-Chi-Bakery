@@ -70,13 +70,14 @@ interface DayResult {
 }
 
 /** Nhiệm vụ hằng ngày ba mẹ giao cho bé (việc thật ngoài đời → duyệt → thưởng xu).
- *  Lặp lại mỗi ngày: so `lastDone`/`raisedDay` với gameDay() để biết đã xong hôm nay. */
+ *  "Đã duyệt hôm nay" KHÔNG còn ở đây — suy từ `approvedToday` (nạp từ ledger DB
+ *  play.task_rewards) để máy ba mẹ không ghi đè save_state. `raisedDay` (bé báo) vẫn
+ *  ở save_state vì chỉ máy bé đổi. */
 export interface Task {
   id: string;
   title: string;
   emoji: string;
   xu: number; // thưởng khi ba mẹ duyệt
-  lastDone: string | null; // gameDay ba mẹ DUYỆT gần nhất
   raisedDay: string | null; // gameDay bé "báo đã làm" gần nhất
 }
 
@@ -96,6 +97,8 @@ interface GameState {
   placed: Placed[];
   inventory: string[]; // KHO: đồ đã mua/tặng, chưa đặt vào phòng
   tasks: Task[]; // nhiệm vụ hằng ngày ba mẹ giao (thưởng xu khi duyệt)
+  rewardXu: number; // TỔNG xu thưởng nhiệm vụ (từ ledger DB) — TÁCH khỏi xu chơi để không đua
+  approvedToday: string[]; // id nhiệm vụ ĐÃ DUYỆT hôm nay (suy từ ledger; thay lastDone)
   counters: { khach: number; me: number; days: number };
   settings: {
     sound: boolean;
@@ -124,6 +127,8 @@ interface GameState {
   addingChild: boolean; // đang tạo hồ sơ bé mới (onboarding lại)
   childUnlocked: boolean; // đã nhập đúng PIN của bé trong phiên này (tạm, không lưu)
   notice: string | null; // băng-rôn thông báo tạm (vd ba mẹ duyệt nhiệm vụ qua realtime)
+  managing: boolean; // máy này đang QUẢN LÝ bé (mở từ Khu phụ huynh) chứ không phải chơi
+  //  → chỉ ghi field quản lý (nhiệm vụ/cài đặt), GIỮ nguyên vị trí chơi của máy bé (Finding 1)
 
   // ── actions ──
   startGame: (shopName: string, avatar: AvatarConfig, lop: 3 | 4) => void;
@@ -143,8 +148,9 @@ interface GameState {
   // ── nhiệm vụ hằng ngày ──
   addTask: (title: string, emoji: string, xu: number) => void;
   removeTask: (id: string) => void;
-  toggleTaskDone: (id: string) => void; // ba mẹ duyệt / bỏ duyệt hôm nay (+/− xu)
-  applyApprovals: (dbTasks: Task[]) => void; // realtime: ba mẹ duyệt ở máy khác → cộng xu + báo
+  totalXu: () => number; // xu tiêu được = xu chơi + xu thưởng nhiệm vụ
+  toggleTaskDone: (id: string) => boolean; // ba mẹ duyệt/bỏ duyệt hôm nay (LOCAL) → trả: đã-duyệt?
+  applyApprovals: (payload: { approvedToday: string[]; tasks: Task[] }) => void; // realtime từ máy khác
   setNotice: (msg: string | null) => void;
   childRaiseTask: (id: string) => void; // bé báo "đã làm" / hủy báo hôm nay
   placeFromInventory: (id: string, room: number, x: number, y: number) => void;
@@ -237,6 +243,8 @@ export const useGame = create<GameState>()(
       placed: [],
       inventory: [],
       tasks: [],
+      rewardXu: 0,
+      approvedToday: [],
       counters: { khach: 0, me: 0, days: 0 },
       settings: { sound: true, theme: 'light', session: 'vua', restSeconds: 120, sessionsPerDay: 1, parentPin: null },
       daily: { date: '', used: 0, bonus: 0 },
@@ -256,6 +264,7 @@ export const useGame = create<GameState>()(
       addingChild: false,
       childUnlocked: true,
       notice: null,
+      managing: false,
 
       // Tạo hồ sơ bé MỚI: reset sạch tiến trình + childId riêng (mỗi bé một hồ sơ).
       startGame: (shopName, avatar, lop) =>
@@ -263,6 +272,7 @@ export const useGame = create<GameState>()(
           started: true,
           addingChild: false,
           childUnlocked: true, // bé mới chưa có PIN → vào thẳng
+          managing: false, // bé mới = chơi trên máy này
           shopName: shopName.trim() || 'Tiệm Bánh Anh Chi',
           avatar,
           lop,
@@ -276,6 +286,8 @@ export const useGame = create<GameState>()(
           placed: [],
           inventory: [],
           tasks: [], // mỗi bé có bộ nhiệm vụ riêng — ba mẹ giao lại
+          rewardXu: 0,
+          approvedToday: [],
           counters: { khach: 0, me: 0, days: 0 },
           daily: { date: '', used: 0, bonus: 0 },
           phase: 'hub',
@@ -403,18 +415,21 @@ export const useGame = create<GameState>()(
           stickers: s.stickers.map((k) => (k.id === id ? { ...k, x, y, rotation } : k)),
         })),
 
+      totalXu: () => get().xu + get().rewardXu, // xu tiêu được = xu chơi + xu thưởng
+
       buyFurniture: (id) => {
         const f = furnitureById(id);
         if (!f) return false;
-        if (get().xu < f.price) return false;
-        set((s) => ({ xu: s.xu - f.price, inventory: [...s.inventory, id] })); // mua → vào KHO
+        if (get().totalXu() < f.price) return false;
+        // trừ vào xu chơi (có thể âm nếu đang tiêu xu thưởng — TỔNG vẫn đúng)
+        set((s) => ({ xu: s.xu - f.price, inventory: [...s.inventory, id] }));
         return true;
       },
 
       // Đổi xu lấy 1 sticker sưu tầm CHƯA có (bất ngờ). Trả id để màn sổ khoe ra.
       buyRandomSticker: (cost) => {
         const s = get();
-        if (s.xu < cost) return null;
+        if (s.totalXu() < cost) return null;
         const [id] = grantCatalog(s.collected, 1);
         if (!id) return null; // đã sưu tầm đủ bộ
         set((st) => ({ xu: st.xu - cost, collected: [...st.collected, id] }));
@@ -427,49 +442,49 @@ export const useGame = create<GameState>()(
         set((s) => ({
           tasks: [
             ...s.tasks,
-            { id: crypto.randomUUID(), title: title.trim() || 'Nhiệm vụ', emoji: emoji || '⭐', xu: Math.max(0, Math.round(xu)), lastDone: null, raisedDay: null },
+            { id: crypto.randomUUID(), title: title.trim() || 'Nhiệm vụ', emoji: emoji || '⭐', xu: Math.max(0, Math.round(xu)), raisedDay: null },
           ],
         })),
 
       removeTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
 
-      // Ba mẹ duyệt: đánh dấu xong hôm nay + cộng xu; bấm lại (bỏ duyệt) → hoàn xu.
-      toggleTaskDone: (id) =>
-        set((s) => {
-          const today = gameDay();
-          const t = s.tasks.find((x) => x.id === id);
-          if (!t) return {};
-          const doneToday = t.lastDone === today;
-          return {
-            xu: doneToday ? Math.max(0, s.xu - t.xu) : s.xu + t.xu,
-            tasks: s.tasks.map((x) => (x.id === id ? { ...x, lastDone: doneToday ? null : today, raisedDay: null } : x)),
-          };
-        }),
+      // Ba mẹ duyệt/bỏ duyệt hôm nay — chỉ đổi LOCAL: approvedToday + rewardXu (thưởng),
+      // KHÔNG đụng xu chơi. Ledger DB do caller ghi (sync.approveTaskReward). Trả TRẠNG
+      // THÁI mới (đã duyệt?) để caller biết ghi hay xoá dòng ledger.
+      toggleTaskDone: (id) => {
+        const s = get();
+        const t = s.tasks.find((x) => x.id === id);
+        if (!t) return false;
+        if (s.approvedToday.includes(id)) {
+          set({ approvedToday: s.approvedToday.filter((x) => x !== id), rewardXu: Math.max(0, s.rewardXu - t.xu) });
+          return false; // vừa BỎ duyệt
+        }
+        set({ approvedToday: [...s.approvedToday, id], rewardXu: s.rewardXu + t.xu });
+        return true; // vừa DUYỆT
+      },
 
-      // Realtime: ba mẹ duyệt ở MÁY KHÁC → DB đổi → áp PHẪU THUẬT vào máy bé đang chơi.
-      // Chỉ cộng xu cho nhiệm vụ DB đã duyệt hôm nay mà máy này CHƯA cộng — KHÔNG đè
-      // xu/plan/vị trí đang chơi (tránh giật). Echo (chính máy này vừa duyệt) → gained=0.
-      applyApprovals: (dbTasks) =>
-        set((s) => {
-          const today = gameDay();
-          let gained = 0;
-          const names: string[] = [];
-          const tasks = s.tasks.map((t) => {
-            const db = dbTasks.find((x) => x.id === t.id);
-            if (db && db.lastDone === today && t.lastDone !== today) {
-              gained += t.xu;
-              names.push(t.title);
-              return { ...t, lastDone: today, raisedDay: null };
-            }
-            return t;
-          });
-          if (gained === 0) return {};
-          const notice =
-            names.length === 1
-              ? `🎉 Ba mẹ đã duyệt “${names[0]}” · +${gained} xu!`
-              : `🎉 Ba mẹ duyệt ${names.length} nhiệm vụ · +${gained} xu!`;
-          return { xu: s.xu + gained, tasks, notice };
-        }),
+      // Realtime từ MÁY KHÁC (ba mẹ duyệt): đồng bộ approvedToday + rewardXu theo DELTA,
+      // KHÔNG đè xu chơi/plan/vị trí. Chỉ báo khi có nhiệm vụ MỚI duyệt; bỏ duyệt thì lặng
+      // lẽ trừ. Echo (chính máy này) → delta 0 → không set.
+      applyApprovals: ({ approvedToday, tasks }) => {
+        const s = get();
+        const local = new Set(s.approvedToday);
+        const incoming = new Set(approvedToday);
+        const xuOf = (id: string) => (tasks.find((t) => t.id === id) ?? s.tasks.find((t) => t.id === id))?.xu ?? 0;
+        const titleOf = (id: string) => (tasks.find((t) => t.id === id) ?? s.tasks.find((t) => t.id === id))?.title ?? 'nhiệm vụ';
+        const added = approvedToday.filter((id) => !local.has(id));
+        const gone = s.approvedToday.filter((id) => !incoming.has(id));
+        if (added.length === 0 && gone.length === 0) return; // echo / không đổi
+        const addXu = added.reduce((n, id) => n + xuOf(id), 0);
+        const delta = addXu - gone.reduce((n, id) => n + xuOf(id), 0);
+        const notice =
+          added.length === 0
+            ? s.notice
+            : added.length === 1
+            ? `🎉 Ba mẹ đã duyệt “${titleOf(added[0])}” · +${addXu} xu!`
+            : `🎉 Ba mẹ duyệt ${added.length} nhiệm vụ · +${addXu} xu!`;
+        set({ approvedToday, rewardXu: Math.max(0, s.rewardXu + delta), notice });
+      },
 
       setNotice: (notice) => set({ notice }),
 
@@ -478,7 +493,7 @@ export const useGame = create<GameState>()(
         set((s) => {
           const today = gameDay();
           const t = s.tasks.find((x) => x.id === id);
-          if (!t || t.lastDone === today) return {};
+          if (!t || s.approvedToday.includes(id)) return {}; // đã duyệt rồi thì thôi
           const raised = t.raisedDay === today;
           return { tasks: s.tasks.map((x) => (x.id === id ? { ...x, raisedDay: raised ? null : today } : x)) };
         }),
@@ -515,7 +530,7 @@ export const useGame = create<GameState>()(
       unlockChild: () => set({ childUnlocked: true }),
       refreshDaily: () => {
         const today = gameDay();
-        if (get().daily.date !== today) set({ daily: { date: today, used: 0, bonus: 0 } });
+        if (get().daily.date !== today) set({ daily: { date: today, used: 0, bonus: 0 }, approvedToday: [] });
       },
       grantBonusSession: () => {
         get().refreshDaily();
@@ -558,6 +573,8 @@ export const useGame = create<GameState>()(
         placed: s.placed,
         inventory: s.inventory,
         tasks: s.tasks,
+        rewardXu: s.rewardXu, // dev: giữ thưởng cục bộ (prod nạp lại từ ledger DB)
+        approvedToday: s.approvedToday,
         counters: s.counters,
         settings: s.settings,
         daily: s.daily,

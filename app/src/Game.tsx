@@ -43,7 +43,7 @@ export function Game() {
     resumeTried.current = true;
     setResuming(true);
     pullChild(getLastChild()!, session.user.id, { resume: true })
-      .then((ok) => { if (!ok) clearLastChild(); })
+      .then((r) => { if (r === 'missing') clearLastChild(); }) // lỗi mạng → GIỮ con trỏ, thử lại lần sau
       .finally(() => setResuming(false));
   }, [ready, session, started]);
 

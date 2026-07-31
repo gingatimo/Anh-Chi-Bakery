@@ -5,7 +5,11 @@
  */
 import { supabase } from './supabase';
 import { useGame } from '../game/store';
-import { pushSnapshot } from './sync';
+import { pushSnapshot, pushManagement } from './sync';
+
+/** Đẩy đúng cách: máy QUẢN LÝ (ba mẹ) chỉ chồng field quản lý (giữ gameplay máy bé);
+ *  máy CHƠI đẩy đầy đủ snapshot. */
+const pushFor = (uid: string) => (useGame.getState().managing ? pushManagement(uid) : pushSnapshot(uid));
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let inited = false;
@@ -23,7 +27,7 @@ export function initAutosave() {
       const uid = data.session?.user.id;
       if (!uid) return; // phụ huynh chưa đăng nhập → chỉ giữ cache local
       try {
-        await pushSnapshot(uid);
+        await pushFor(uid);
       } catch {
         /* offline / lỗi mạng — lần thay đổi kế tiếp sẽ thử lại */
       }
@@ -48,7 +52,7 @@ export async function flushNow() {
   const uid = data.session?.user.id;
   if (!uid) return;
   try {
-    await pushSnapshot(uid);
+    await pushFor(uid);
   } catch {
     /* offline — cache local đã có, để autosave thử lại sau */
   }

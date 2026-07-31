@@ -390,7 +390,7 @@ const STICKER_COST = 15; // xu để đổi 1 sticker sưu tầm bất ngờ
 
 function CollectionTab({ reduce }: { reduce: boolean }) {
   const collected = useGame((s) => s.collected);
-  const xu = useGame((s) => s.xu);
+  const xu = useGame((s) => s.xu + s.rewardXu); // TỔNG xu tiêu được (chơi + thưởng)
   const buyRandomSticker = useGame((s) => s.buyRandomSticker);
   const all = useMemo<CatalogSticker[]>(() => catalog(), []); // 1000 phần tử, dựng 1 lần
   const [catKey, setCatKey] = useState<string | null>(null);
