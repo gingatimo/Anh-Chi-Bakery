@@ -13,6 +13,8 @@ import { AccountSection } from './AccountSection';
 import { TaskManager } from './TaskManager';
 import { ChildSwitcher } from './ChildSwitcher';
 import { ChildPinPanel } from './ChildPinPanel';
+import { ParentPinPanel } from './ParentPinPanel';
+import { PinRecover } from './PinRecover';
 import { useSession } from '../cloud/auth';
 import { deleteChild } from '../cloud/sync';
 
@@ -121,13 +123,7 @@ function PinGate({
 
         {!settingMode && (
           <button
-            onClick={() => {
-              if (confirm('Đặt lại mã PIN? (KHÔNG mất dữ liệu chơi của bé)')) {
-                sfx.tap();
-                onForgot();
-                setEntry('');
-              }
-            }}
+            onClick={() => { sfx.tap(); onForgot(); }}
             style={{ marginTop: 18, color: 'var(--text-soft)', fontWeight: 600, textDecoration: 'underline' }}
           >
             Quên mã PIN?
@@ -303,6 +299,9 @@ function ParentPanel() {
           </div>
         </Panel>
 
+        {/* Mã PIN phụ huynh — đổi mã */}
+        <ParentPinPanel />
+
         {/* Dữ liệu */}
         <Panel>
           <h3 style={{ marginBottom: 12 }}>Dữ liệu</h3>
@@ -334,7 +333,11 @@ export function Parent() {
   const setParentPin = useGame((s) => s.setParentPin);
   const goto = useGame((s) => s.goto);
   const [unlocked, setUnlocked] = useState(false);
+  const [recovering, setRecovering] = useState(false);
 
+  if (recovering) {
+    return <PinRecover onDone={() => { setRecovering(false); setUnlocked(true); }} onCancel={() => setRecovering(false)} />;
+  }
   if (!unlocked) {
     return (
       <PinGate
@@ -344,7 +347,7 @@ export function Parent() {
           setParentPin(p);
           setUnlocked(true);
         }}
-        onForgot={() => setParentPin(null)}
+        onForgot={() => setRecovering(true)}
         onBack={() => goto('home')}
       />
     );

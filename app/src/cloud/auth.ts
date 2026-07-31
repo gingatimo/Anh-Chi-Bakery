@@ -45,3 +45,14 @@ export async function signOut() {
   if (!supabase) return;
   await supabase.auth.signOut();
 }
+
+/** Xác minh lại bằng MẬT KHẨU tài khoản (dùng khi quên mã PIN → chứng minh là bố mẹ,
+ * không phải trẻ). Đúng mật khẩu → true. Trẻ không biết mật khẩu tài khoản nên an toàn. */
+export async function reauthWithPassword(password: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { data } = await supabase.auth.getSession();
+  const email = data.session?.user.email;
+  if (!email) return false;
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  return !error;
+}
