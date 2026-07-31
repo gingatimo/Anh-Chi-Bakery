@@ -10,7 +10,7 @@
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { buildDay, type DayPlan, type CustomerPlan, type Step, type Levels, type SessionPreset } from './days';
+import { buildDay, type DayPlan, type CustomerPlan, type Step, type Levels, type SessionPreset, type ActivityKind } from './days';
 import { STICKERS } from '../assets/svg/Sticker';
 import { furnitureById } from '../assets/svg/Furniture';
 import { supabaseConfigured } from '../cloud/supabase';
@@ -27,6 +27,7 @@ export type Phase =
   | 'shop'
   | 'decorate'
   | 'tasks'
+  | 'activity' // hoạt động thư giãn xen giữa (không toán)
   | 'parent';
 
 export interface AvatarConfig {
@@ -112,6 +113,7 @@ interface GameState {
   plan: DayPlan | null;
   beatIndex: number;
   stepIndex: number;
+  activityKind: ActivityKind | null; // hoạt động thư giãn đang hiện (khi phase='activity')
   recentA: boolean[];
   recentB: boolean[];
   dayResult: DayResult;
@@ -130,6 +132,7 @@ interface GameState {
   currentStep: () => Step | null;
   completeStep: (correct: boolean) => void;
   continueFromLunch: () => void;
+  continueFromActivity: () => void; // rời hoạt động thư giãn → phục vụ tiếp
   goto: (p: Phase) => void;
   placeSticker: (id: string, page: number, x: number, y: number, rotation: number) => void;
   moveSticker: (id: string, x: number, y: number, rotation: number) => void;
@@ -174,7 +177,7 @@ export function gameDay(): string {
  *  xong (plan=null) hay các màn thưởng → về 'hub'. */
 export function resumePhase(snap: { plan?: DayPlan | null; phase?: Phase | string; beatIndex?: number }): Phase {
   const { plan, phase, beatIndex = 0 } = snap;
-  if (plan && plan.beats && (phase === 'serve' || phase === 'lunch') && beatIndex >= 0 && beatIndex < plan.beats.length) {
+  if (plan && plan.beats && (phase === 'serve' || phase === 'lunch' || phase === 'activity') && beatIndex >= 0 && beatIndex < plan.beats.length) {
     return phase;
   }
   return 'hub';
@@ -241,6 +244,7 @@ export const useGame = create<GameState>()(
       plan: null,
       beatIndex: 0,
       stepIndex: 0,
+      activityKind: null,
       recentA: [],
       recentB: [],
       dayResult: { served: 0, xu: 0, firstTry: 0, total: 0 },
@@ -369,14 +373,19 @@ export const useGame = create<GameState>()(
           endDay();
           return;
         }
-        if (beats[nextBeat].kind === 'lunch') {
+        const nb = beats[nextBeat];
+        if (nb.kind === 'lunch') {
           set({ beatIndex: nextBeat + 1, stepIndex: 0, phase: 'lunch' });
+        } else if (nb.kind === 'activity') {
+          // hoạt động thư giãn: nhảy QUA beat này (như nghỉ trưa), nhớ loại để vẽ
+          set({ beatIndex: nextBeat + 1, stepIndex: 0, phase: 'activity', activityKind: nb.act });
         } else {
           set({ beatIndex: nextBeat, stepIndex: 0 });
         }
       },
 
       continueFromLunch: () => set({ phase: 'serve' }),
+      continueFromActivity: () => set({ phase: 'serve', activityKind: null }),
 
       goto: (p) => set({ phase: p }),
 
@@ -554,6 +563,7 @@ export const useGame = create<GameState>()(
         plan: s.plan,
         beatIndex: s.beatIndex,
         stepIndex: s.stepIndex,
+        activityKind: s.activityKind,
         dayResult: s.dayResult,
         recentA: s.recentA,
         recentB: s.recentB,

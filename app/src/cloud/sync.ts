@@ -33,6 +33,7 @@ function snapshot() {
     plan: s.plan,
     beatIndex: s.beatIndex,
     stepIndex: s.stepIndex,
+    activityKind: s.activityKind,
     dayResult: s.dayResult,
     recentA: s.recentA,
     recentB: s.recentB,

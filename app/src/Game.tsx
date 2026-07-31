@@ -15,6 +15,7 @@ import { ChildLock } from './screens/ChildLock';
 import { Hub } from './screens/Hub';
 import { Serve } from './screens/Serve';
 import { Lunch } from './screens/Lunch';
+import { Activity } from './screens/Activity';
 import { Summary } from './screens/Summary';
 import { Reveal } from './screens/Reveal';
 import { StickerBook } from './screens/StickerBook';
@@ -23,7 +24,7 @@ import { Decorate } from './screens/Decorate';
 import { Tasks } from './screens/Tasks';
 import { Parent } from './screens/Parent';
 
-const GAME_PHASES = ['hub', 'serve', 'lunch', 'summary', 'reveal', 'book', 'shop', 'decorate', 'tasks'];
+const GAME_PHASES = ['hub', 'serve', 'lunch', 'activity', 'summary', 'reveal', 'book', 'shop', 'decorate', 'tasks'];
 
 export function Game() {
   const started = useGame((s) => s.started);
@@ -81,6 +82,8 @@ export function Game() {
         return <Serve />;
       case 'lunch':
         return <Lunch />;
+      case 'activity':
+        return <Activity />;
       case 'summary':
         return <Summary />;
       case 'reveal':

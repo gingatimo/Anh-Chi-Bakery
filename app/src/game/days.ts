@@ -29,7 +29,15 @@ export interface CustomerPlan {
   baseXu: number;
 }
 
-export type Beat = { kind: 'customer'; c: CustomerPlan } | { kind: 'lunch' };
+/** Hoạt động thư giãn xen giữa (KHÔNG toán, không điểm) — đổi nhịp cho bé. */
+export type ActivityKind = 'stretch' | 'decorate' | 'petmap';
+const ACTIVITIES: ActivityKind[] = ['stretch', 'decorate', 'petmap'];
+const ACTIVITY_EVERY = 3; // xen 1 hoạt động sau mỗi 3 khách
+
+export type Beat =
+  | { kind: 'customer'; c: CustomerPlan }
+  | { kind: 'lunch' }
+  | { kind: 'activity'; act: ActivityKind };
 
 export interface DayPlan {
   day: number;
@@ -200,9 +208,17 @@ export function buildDay(day: number, levels: Levels, session: SessionPreset = '
   const n = customerCountFor(day, session);
   const lunchAfter = Math.floor(n / 2); // nghỉ trưa ~giữa ngày (thiết kế 4.1, 9.6)
   const beats: Beat[] = [];
+  let actIdx = 0;
   for (let i = 0; i < n; i++) {
     beats.push({ kind: 'customer', c: normalCustomer(sched, levels, lop) });
-    if (i === lunchAfter - 1) beats.push({ kind: 'lunch' });
+    const isLast = i === n - 1;
+    // Nghỉ trưa ưu tiên; còn lại xen hoạt động sau mỗi 3 khách (không sau khách cuối).
+    if (i === lunchAfter - 1) {
+      beats.push({ kind: 'lunch' });
+    } else if (!isLast && (i + 1) % ACTIVITY_EVERY === 0) {
+      beats.push({ kind: 'activity', act: ACTIVITIES[actIdx % ACTIVITIES.length] });
+      actIdx++;
+    }
   }
   return { day, khaitruong: false, beats };
 }
