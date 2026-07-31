@@ -248,7 +248,7 @@ user = "resend"
 # Đặt biến RESEND_API_KEY trong shell TRƯỚC khi chạy `supabase config push`.
 # KHÔNG commit key vào repo — dùng env().
 pass = "env(RESEND_API_KEY)"
-admin_email = "no-reply@anhchistore.com"
+admin_email = "no-reply@timoagency.com"
 sender_name = "Tiệm Bánh Anh Chi"
 
 # Uncomment to customize email template
