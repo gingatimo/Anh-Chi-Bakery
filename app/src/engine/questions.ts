@@ -9,10 +9,10 @@
 import { formatVND, makeChange, pick, shuffle, smallestNoteAbove, NOTES } from './money';
 import type { NoteValue } from './money';
 
-export type QMode = 'choose' | 'keypad' | 'money-drag' | 'tray-drag' | 'divide' | 'measure';
-// Nhóm A = tiền tệ; B = nhân/chia; C = đo lường (GDPT 2018 lớp 3–4).
-// B3 chia trong bảng, B5 chia có dư; C1 cân/đong nguyên liệu (khối lượng g, dung tích ml).
-export type SkillId = 'A1' | 'A4' | 'A5' | 'A6' | 'B1' | 'B2' | 'B3' | 'B5' | 'C1';
+export type QMode = 'choose' | 'keypad' | 'money-drag' | 'tray-drag' | 'divide' | 'measure' | 'quiz';
+// A = tiền tệ; B = nhân/chia; C = đo lường; D = toán đố (GDPT 2018 lớp 3–4).
+// B3 chia trong bảng, B5 chia có dư; C1 cân/đong; D1 tổng–hiệu (tìm 2 số biết tổng & hiệu).
+export type SkillId = 'A1' | 'A4' | 'A5' | 'A6' | 'B1' | 'B2' | 'B3' | 'B5' | 'C1' | 'D1';
 
 export interface Question {
   skill: SkillId;
@@ -35,6 +35,8 @@ export interface Question {
     per?: number;
     groups?: number; // B3: số hộp cần chia đều
     unit?: string; // C1: đơn vị đo (g, ml…)
+    diff?: number; // D1: hiệu (cho sơ đồ đoạn thẳng tổng–hiệu)
+    labels?: [string, string]; // D1: tên hai loại (nhiều hơn, ít hơn)
   };
   hints: [string, string, string];
   /** chẩn đoán lỗi khi nhập số — trả về gợi ý nhắm đúng lỗi, hoặc null */
@@ -380,6 +382,44 @@ function genC1(level: number): Question {
   };
 }
 
+// ─────────────────────────────────────────────────────────────
+// D1 — Toán đố TỔNG–HIỆU (quiz): tìm hai số biết tổng & hiệu (lớp 4)
+// ─────────────────────────────────────────────────────────────
+const CAKE_PAIRS: [string, string][] = [
+  ['bánh quy', 'bánh kem'],
+  ['bánh mì', 'bánh ngọt'],
+  ['bánh su', 'bông lan'],
+  ['bánh flan', 'bánh donut'],
+];
+function genD1(level: number): Question {
+  const [a, b] = pick(CAKE_PAIRS);
+  const small = 2 + Math.floor(Math.random() * (level <= 2 ? 8 : 20));
+  const diff = 1 + Math.floor(Math.random() * (level <= 2 ? 6 : 12));
+  const large = small + diff;
+  const sum = small + large;
+  const answer = large; // hỏi loại NHIỀU hơn
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const pool = shuffle(
+    [small, sum, large + 1, Math.max(1, large - 1)].filter((v, i, ar) => ar.indexOf(v) === i && v !== answer && v > 0)
+  );
+  const choices = shuffle([answer, ...pool.slice(0, 3)]);
+  return {
+    skill: 'D1',
+    level,
+    mode: 'quiz',
+    key: `D1:${sum}/${diff}`,
+    prompt: `Bán tổng ${sum} cái. ${cap(a)} nhiều hơn ${b} là ${diff} cái. Hỏi có mấy ${a}?`,
+    answer,
+    choices,
+    context: { total: sum, diff, labels: [a, b] },
+    hints: [
+      'Vẽ hai đoạn: loại nhiều hơn dài hơn một khúc bằng hiệu.',
+      `Loại nhiều = (tổng + hiệu) : 2 = (${sum} + ${diff}) : 2`,
+      `Có ${answer} ${a}.`,
+    ],
+  };
+}
+
 const GEN: Record<SkillId, (level: number, lop: 3 | 4) => Question> = {
   A1: (l) => genA1(l),
   A4: (l, lop) => genA4(l, lop),
@@ -390,6 +430,7 @@ const GEN: Record<SkillId, (level: number, lop: 3 | 4) => Question> = {
   B3: (l) => genB3(l),
   B5: (l) => genB5(l),
   C1: (l) => genC1(l),
+  D1: (l) => genD1(l),
 };
 
 export function generate(skill: SkillId, level: number, lop: 3 | 4 = 3): Question {

@@ -161,6 +161,22 @@ export function runSelfCheck(): CheckResult[] {
     add('C1: cân/đong đúng (cần thêm = cần − có)', ok, why);
   }
 
+  // D1 — tổng–hiệu: đáp án (nhiều hơn) = (tổng + hiệu)/2; hai số nguyên dương
+  {
+    let ok = true,
+      why = '';
+    for (let i = 0; i < N; i++) {
+      const q = generate('D1', 1 + (i % 5));
+      const { total, diff } = q.context!;
+      const large = (total! + diff!) / 2;
+      const small = (total! - diff!) / 2;
+      if (q.answer !== large) { ok = false; why = `D1 ${q.answer}≠${large}`; break; }
+      if (!(Number.isInteger(large) && small > 0 && large > small)) { ok = false; why = `D1 số không hợp lệ (${small},${large})`; break; }
+      if (!q.choices!.includes(q.answer)) { ok = false; why = 'D1 choices thiếu đáp án'; break; }
+    }
+    add('D1: tổng–hiệu đúng (nhiều = (tổng+hiệu)/2)', ok, why);
+  }
+
   // Scheduler — không lặp prompt trong cửa sổ 20
   {
     const sch = new QuestionScheduler();
