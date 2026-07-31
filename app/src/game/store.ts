@@ -97,9 +97,11 @@ interface GameState {
   pendingSticker: string | null;
   giftFurniture: string | null;
   promoted: boolean; // vừa lên lớp (hiện ở tổng kết)
+  addingChild: boolean; // đang tạo hồ sơ bé mới (onboarding lại)
 
   // ── actions ──
   startGame: (shopName: string, avatar: AvatarConfig, lop: 3 | 4) => void;
+  beginAddChild: () => void;
   openShop: () => void;
   currentCustomer: () => CustomerPlan | null;
   currentStep: () => Step | null;
@@ -199,17 +201,30 @@ export const useGame = create<GameState>()(
       pendingSticker: null,
       giftFurniture: null,
       promoted: false,
+      addingChild: false,
 
+      // Tạo hồ sơ bé MỚI: reset sạch tiến trình + childId riêng (mỗi bé một hồ sơ).
       startGame: (shopName, avatar, lop) =>
-        set((s) => ({
+        set({
           started: true,
+          addingChild: false,
           shopName: shopName.trim() || 'Tiệm Bánh Anh Chi',
           avatar,
           lop,
-          childId: s.childId || crypto.randomUUID(),
+          childId: crypto.randomUUID(),
           levels: lop >= 4 ? { A: 3, B: 3 } : { A: 1, B: 1 }, // lớp 4 bắt đầu khó hơn
+          day: 1,
+          xu: 0,
+          stickers: [],
+          collected: [],
+          placed: [],
+          inventory: [],
+          counters: { khach: 0, me: 0, days: 0 },
+          daily: { date: '', used: 0, bonus: 0 },
           phase: 'hub',
-        })),
+        }),
+
+      beginAddChild: () => set({ addingChild: true, phase: 'welcome' }),
 
       openShop: () => {
         get().refreshDaily();

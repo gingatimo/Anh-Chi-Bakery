@@ -75,3 +75,30 @@ export async function syncOnAuth(parentId: string): Promise<'pulled' | 'pushed'>
   await pushSnapshot(parentId);
   return 'pushed';
 }
+
+// ── Nhiều con: 1 phụ huynh có nhiều hồ sơ trẻ (thiết kế 9.4) ──
+export interface ChildRow {
+  id: string;
+  ten_tiem: string | null;
+  lop: number | null;
+  save_state: Record<string, unknown>;
+  updated_at: string;
+}
+
+/** Danh sách hồ sơ các bé của tài khoản phụ huynh (mới nhất trước). */
+export async function listChildren(parentId: string): Promise<ChildRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('child_profiles')
+    .select('id, ten_tiem, lop, save_state, updated_at')
+    .eq('parent_id', parentId)
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ChildRow[];
+}
+
+/** Nạp hồ sơ một bé (đã chọn) vào máy này để chơi. */
+export function activateChild(row: ChildRow) {
+  const snap = (row.save_state ?? {}) as Partial<S>;
+  useGame.setState({ ...snap, childId: row.id, started: true, addingChild: false, phase: 'hub' });
+}
