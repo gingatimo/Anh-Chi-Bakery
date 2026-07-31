@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Tiệm Bánh Anh Chi",
+  "short_name": "Anh Chi",
+  "description": "Học toán vui cùng bé — mở tiệm bánh, phục vụ khách, sưu tầm sticker, làm nhiệm vụ nhận thưởng.",
+  "lang": "vi",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FBF1DE",
+  "theme_color": "#FBF1DE",
+  "categories": ["education", "games", "kids"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
