@@ -262,9 +262,6 @@ function ParentPanel() {
         {/* Nhiệm vụ hằng ngày — giao việc thật, duyệt để thưởng xu */}
         <TaskManager />
 
-        {/* Tài khoản & sao lưu đám mây (Supabase) */}
-        <AccountSection />
-
         {/* Cài đặt thời gian */}
         <Panel style={{ marginBottom: 16 }}>
           <h3 style={{ marginBottom: 4 }}>Thời gian chơi</h3>
@@ -324,6 +321,9 @@ function ParentPanel() {
           </div>
           <p style={{ color: 'var(--text-soft)', fontSize: 13, marginTop: 12 }}>Dữ liệu được lưu trên đám mây (Supabase) và đồng bộ đa thiết bị. Thanh toán nằm ở bản đầy đủ.</p>
         </Panel>
+
+        {/* Tài khoản & sao lưu đám mây (Supabase) — đặt cuối cùng */}
+        <AccountSection />
       </div>
     </div>
   );
