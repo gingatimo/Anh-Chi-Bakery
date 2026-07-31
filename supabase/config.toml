@@ -239,15 +239,17 @@ otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
-# Use a production-ready SMTP server
-# [auth.email.smtp]
-# enabled = true
-# host = "smtp.sendgrid.net"
-# port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# SMTP thật qua Resend (free 3.000 email/tháng). "From" phải là domain đã verify ở Resend.
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+# Đặt biến RESEND_API_KEY trong shell TRƯỚC khi chạy `supabase config push`.
+# KHÔNG commit key vào repo — dùng env().
+pass = "env(RESEND_API_KEY)"
+admin_email = "no-reply@anhchistore.com"
+sender_name = "Tiệm Bánh Anh Chi"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]
