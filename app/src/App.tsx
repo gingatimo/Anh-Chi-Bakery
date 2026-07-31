@@ -3,6 +3,8 @@ import { PaperDefs } from './assets/svg/paper';
 import { useGame } from './game/store';
 import { setSound } from './ui/sfx';
 import { initAutosave } from './cloud/autosave';
+import { initRealtime } from './cloud/realtime';
+import { Toast } from './ui/Toast';
 import { Gallery } from './dev/Gallery';
 import { SelfCheck } from './dev/SelfCheck';
 import { Playtest } from './dev/Playtest';
@@ -36,12 +38,14 @@ export default function App() {
   // Home làm khi bé chọn card (pullChild) — không auto-vào-bé lúc mở app nữa.
   useEffect(() => {
     initAutosave();
+    initRealtime();
   }, []);
 
   return (
     <>
       <PaperDefs />
       <div className="grain-overlay" />
+      <Toast />
       {hash === '#gallery' ? (
         <Gallery />
       ) : hash === '#selfcheck' ? (

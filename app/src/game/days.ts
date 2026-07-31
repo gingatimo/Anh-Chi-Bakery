@@ -51,6 +51,24 @@ function orderCakesFor(n: number): CakeKind[] {
   return cakes;
 }
 
+/** Câu khách gọi món: GỘP bánh trùng loại + đếm, tránh "ổ bánh mì với ổ bánh mì".
+ *  [loaf,loaf] → "2 ổ bánh mì"; [loaf,cupcake] → "ổ bánh mì với bánh kem". */
+function cakePhrase(cakes: CakeKind[]): string {
+  const order: CakeKind[] = [];
+  const counts = new Map<CakeKind, number>();
+  for (const c of cakes) {
+    if (!counts.has(c)) order.push(c);
+    counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  return order
+    .map((k) => {
+      const n = counts.get(k)!;
+      const label = CAKE_LABEL[k].toLowerCase();
+      return n > 1 ? `${n} ${label}` : label;
+    })
+    .join(' với ');
+}
+
 /** Kỹ năng nhóm B theo lớp (GDPT 2018). Nhân bảng + CHIA (bảng chia là nội dung lớp
  *  3). Lớp 4 thêm chia CÓ DƯ (B5) và nhân 6–9 nhiều hơn. */
 function bakeSkillForGrade(lop: 3 | 4): SkillId {
@@ -91,7 +109,7 @@ function normalCustomer(sched: QuestionScheduler, levels: Levels, lop: 3 | 4): C
   const wants =
     items.length >= 3
       ? `Cho mình ${items.length} món nhé!`
-      : `Mình lấy ${cakes.map((c) => CAKE_LABEL[c].toLowerCase()).join(' với ')} nha!`;
+      : `Mình lấy ${cakePhrase(cakes)} nha!`;
 
   return {
     id: nid(),
@@ -157,15 +175,15 @@ function khaitruongCustomer(): CustomerPlan {
 export type SessionPreset = 'ngan' | 'vua' | 'dai';
 
 const SESSION_COUNTS: Record<SessionPreset, { warmup: number; full: number; mins: string }> = {
-  ngan: { warmup: 3, full: 4, mins: '~10 phút' },
-  vua: { warmup: 5, full: 7, mins: '~15 phút' },
-  dai: { warmup: 6, full: 9, mins: '~20 phút' },
+  ngan: { warmup: 7, full: 10, mins: '~20 phút' },
+  vua: { warmup: 11, full: 15, mins: '~30 phút' },
+  dai: { warmup: 14, full: 20, mins: '~40 phút' },
 };
 
 export const SESSION_LABEL: Record<SessionPreset, { name: string; desc: string }> = {
-  ngan: { name: 'Ngắn', desc: `4 khách · ${SESSION_COUNTS.ngan.mins}` },
-  vua: { name: 'Vừa', desc: `7 khách · ${SESSION_COUNTS.vua.mins}` },
-  dai: { name: 'Dài', desc: `9 khách · ${SESSION_COUNTS.dai.mins}` },
+  ngan: { name: 'Ngắn', desc: `${SESSION_COUNTS.ngan.full} khách · ${SESSION_COUNTS.ngan.mins}` },
+  vua: { name: 'Vừa', desc: `${SESSION_COUNTS.vua.full} khách · ${SESSION_COUNTS.vua.mins}` },
+  dai: { name: 'Dài', desc: `${SESSION_COUNTS.dai.full} khách · ${SESSION_COUNTS.dai.mins}` },
 };
 
 export function customerCountFor(day: number, session: SessionPreset = 'vua'): number {

@@ -120,6 +120,7 @@ interface GameState {
   promoted: boolean; // vừa lên lớp (hiện ở tổng kết)
   addingChild: boolean; // đang tạo hồ sơ bé mới (onboarding lại)
   childUnlocked: boolean; // đã nhập đúng PIN của bé trong phiên này (tạm, không lưu)
+  notice: string | null; // băng-rôn thông báo tạm (vd ba mẹ duyệt nhiệm vụ qua realtime)
 
   // ── actions ──
   startGame: (shopName: string, avatar: AvatarConfig, lop: 3 | 4) => void;
@@ -139,6 +140,8 @@ interface GameState {
   addTask: (title: string, emoji: string, xu: number) => void;
   removeTask: (id: string) => void;
   toggleTaskDone: (id: string) => void; // ba mẹ duyệt / bỏ duyệt hôm nay (+/− xu)
+  applyApprovals: (dbTasks: Task[]) => void; // realtime: ba mẹ duyệt ở máy khác → cộng xu + báo
+  setNotice: (msg: string | null) => void;
   childRaiseTask: (id: string) => void; // bé báo "đã làm" / hủy báo hôm nay
   placeFromInventory: (id: string, room: number, x: number, y: number) => void;
   movePlaced: (key: number, x: number, y: number) => void;
@@ -231,7 +234,7 @@ export const useGame = create<GameState>()(
       inventory: [],
       tasks: [],
       counters: { khach: 0, me: 0, days: 0 },
-      settings: { sound: true, theme: 'light', session: 'vua', restSeconds: 30, sessionsPerDay: 1, parentPin: null },
+      settings: { sound: true, theme: 'light', session: 'vua', restSeconds: 120, sessionsPerDay: 1, parentPin: null },
       daily: { date: '', used: 0, bonus: 0 },
 
       phase: 'welcome',
@@ -246,6 +249,7 @@ export const useGame = create<GameState>()(
       promoted: false,
       addingChild: false,
       childUnlocked: true,
+      notice: null,
 
       // Tạo hồ sơ bé MỚI: reset sạch tiến trình + childId riêng (mỗi bé một hồ sơ).
       startGame: (shopName, avatar, lop) =>
@@ -429,6 +433,33 @@ export const useGame = create<GameState>()(
             tasks: s.tasks.map((x) => (x.id === id ? { ...x, lastDone: doneToday ? null : today, raisedDay: null } : x)),
           };
         }),
+
+      // Realtime: ba mẹ duyệt ở MÁY KHÁC → DB đổi → áp PHẪU THUẬT vào máy bé đang chơi.
+      // Chỉ cộng xu cho nhiệm vụ DB đã duyệt hôm nay mà máy này CHƯA cộng — KHÔNG đè
+      // xu/plan/vị trí đang chơi (tránh giật). Echo (chính máy này vừa duyệt) → gained=0.
+      applyApprovals: (dbTasks) =>
+        set((s) => {
+          const today = gameDay();
+          let gained = 0;
+          const names: string[] = [];
+          const tasks = s.tasks.map((t) => {
+            const db = dbTasks.find((x) => x.id === t.id);
+            if (db && db.lastDone === today && t.lastDone !== today) {
+              gained += t.xu;
+              names.push(t.title);
+              return { ...t, lastDone: today, raisedDay: null };
+            }
+            return t;
+          });
+          if (gained === 0) return {};
+          const notice =
+            names.length === 1
+              ? `🎉 Ba mẹ đã duyệt “${names[0]}” · +${gained} xu!`
+              : `🎉 Ba mẹ duyệt ${names.length} nhiệm vụ · +${gained} xu!`;
+          return { xu: s.xu + gained, tasks, notice };
+        }),
+
+      setNotice: (notice) => set({ notice }),
 
       // Bé "báo đã làm" (chờ ba mẹ duyệt). Bấm lại để hủy báo. Đã duyệt rồi thì bỏ qua.
       childRaiseTask: (id) =>

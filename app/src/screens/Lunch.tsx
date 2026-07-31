@@ -4,7 +4,7 @@
  *     màn hình không hề cho mắt nghỉ). Mập ngủ, nhịp thở dịu, ~24s, chuông gọi dậy.
  *  2) Beat nhẹ có nội dung: chọn món đặc biệt cho ngày mai (không phải chờ suông).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useGame } from '../game/store';
 import { MapChar } from '../ui/MapChar';
@@ -13,7 +13,7 @@ import { sfx } from '../ui/sfx';
 import { Cake, CAKE_KINDS, CAKE_LABEL, type CakeKind } from '../assets/svg/Cake';
 import { shuffle } from '../engine/money';
 
-const EYE_REST_SEC = 24; // ~20-20-20; chỉnh 1 số này để đổi độ dài nghỉ mắt
+const EYE_REST_SEC = 120; // nghỉ mặc định (giây) nếu chưa cấu hình — 2 phút
 
 // Cảnh nghỉ là dark CỐ ĐỊNH ở cả hai theme (đêm ấm) → chữ sáng hardcode.
 const NIGHT_TEXT = '#F6EAD3';
@@ -160,15 +160,27 @@ export function Lunch() {
   const restSeconds = useGame((s) => s.settings.restSeconds ?? EYE_REST_SEC);
   const [sub, setSub] = useState<'rest' | 'special'>('rest');
   const [ready, setReady] = useState(false);
+  // Hết-giờ-nghỉ theo ĐỒNG HỒ THẬT: đặt máy xuống nghỉ vẫn trôi (không chỉ đếm lúc
+  // màn hình bật) → nghỉ dài (tới 10 phút) mới đúng nghĩa nghỉ ngơi.
+  const endsAtRef = useRef(Date.now() + restSeconds * 1000);
+  const firedRef = useRef(false);
 
   useEffect(() => {
     if (sub !== 'rest') return;
-    const t = setTimeout(() => {
-      setReady(true);
-      sfx.bell();
-    }, restSeconds * 1000);
-    return () => clearTimeout(t);
-  }, [sub, restSeconds]);
+    const check = () => {
+      if (firedRef.current) return;
+      if (Date.now() >= endsAtRef.current) {
+        firedRef.current = true;
+        setReady(true);
+        sfx.bell();
+      }
+    };
+    const t = setTimeout(check, Math.max(0, endsAtRef.current - Date.now()));
+    // bắt lại khi mở tab lại (timer bị bóp lúc ẩn) → không kẹt ở màn nghỉ
+    const onVis = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearTimeout(t); document.removeEventListener('visibilitychange', onVis); };
+  }, [sub]);
 
   if (sub === 'rest') return <EyeRest ready={ready} onDone={() => setSub('special')} />;
   return <PickSpecial onContinue={continueFromLunch} />;

@@ -18,7 +18,7 @@ import { PinRecover } from './PinRecover';
 import { useSession } from '../cloud/auth';
 import { deleteChild } from '../cloud/sync';
 
-const REST_OPTIONS = [20, 30, 45];
+const REST_OPTIONS = [120, 300, 600]; // giây → 2 / 5 / 10 phút
 const SESSIONS: SessionPreset[] = ['ngan', 'vua', 'dai'];
 
 function PinGate({
@@ -282,8 +282,8 @@ function ParentPanel() {
             onPick={setSession}
           />
 
-          <div style={{ fontWeight: 700, margin: '18px 0 8px' }}>Thời gian nghỉ mắt (20-20-20)</div>
-          <OptionRow value={settings.restSeconds} options={REST_OPTIONS} labelOf={(n) => `${n} giây`} onPick={setRest} />
+          <div style={{ fontWeight: 700, margin: '18px 0 8px' }}>Thời gian nghỉ giữa buổi</div>
+          <OptionRow value={settings.restSeconds} options={REST_OPTIONS} labelOf={(n) => `${n / 60} phút`} onPick={setRest} />
         </Panel>
 
         {/* Âm thanh & giao diện */}

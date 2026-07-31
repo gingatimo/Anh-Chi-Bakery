@@ -6,6 +6,7 @@
  */
 import { supabase } from './supabase';
 import { useGame, resumePhase } from '../game/store';
+import { setLastChild } from './lastChild';
 
 type S = ReturnType<typeof useGame.getState>;
 
@@ -140,6 +141,7 @@ export async function pullChild(
   if (opts?.resume) {
     patch.phase = resumePhase(snap); // 'serve'/'lunch' nếu đang dở, else 'hub'
     patch.childUnlocked = false; // vào lại phải qua PIN riêng của bé (nếu có)
+    setLastChild(data.id); // nhớ bé này → reload vào thẳng màn chơi
   } else {
     delete patch.phase; // đừng để phase của bé kéo phụ huynh ra khỏi Khu phụ huynh
   }

@@ -8,6 +8,7 @@ import { sfx } from '../ui/sfx';
 import { supabaseConfigured } from '../cloud/supabase';
 import { useSession, signOut } from '../cloud/auth';
 import { pushSnapshot } from '../cloud/sync';
+import { clearLastChild } from '../cloud/lastChild';
 
 type Msg = { kind: 'ok' | 'err' | 'info'; text: string } | null;
 const errText = (e: unknown) => (e instanceof Error ? e.message : 'Có lỗi, thử lại nhé.');
@@ -77,7 +78,7 @@ export function AccountSection() {
         <BigButton tone="sage" disabled={busy} onClick={() => run(async () => { await pushSnapshot(uid); sfx.coin(); setMsg({ kind: 'ok', text: 'Đã đồng bộ ngay lên đám mây!' }); })}>
           ☁️ Đồng bộ ngay
         </BigButton>
-        <BigButton tone="rose" disabled={busy} onClick={() => run(async () => { await signOut(); setMsg({ kind: 'info', text: 'Đã đăng xuất.' }); })}>
+        <BigButton tone="rose" disabled={busy} onClick={() => run(async () => { clearLastChild(); await signOut(); setMsg({ kind: 'info', text: 'Đã đăng xuất.' }); })}>
           Đăng xuất
         </BigButton>
       </div>

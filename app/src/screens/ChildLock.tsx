@@ -2,6 +2,7 @@
  * Home để bé khác chọn. Quên mã → bố mẹ mở Khu phụ huynh đặt lại. */
 import { useState } from 'react';
 import { useGame } from '../game/store';
+import { clearLastChild } from '../cloud/lastChild';
 import { MapChar } from '../ui/MapChar';
 import { IconButton } from '../ui/kit';
 import { PinPad } from '../ui/PinPad';
@@ -28,7 +29,7 @@ export function ChildLock() {
   return (
     <div style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 24 }}>
       <div style={{ position: 'absolute', top: 14, left: 14 }}>
-        <IconButton label="Về màn chọn bé" onClick={() => { sfx.tap(); goto('home'); }}>
+        <IconButton label="Về màn chọn bé" onClick={() => { sfx.tap(); clearLastChild(); goto('home'); }}>
           ←
         </IconButton>
       </div>

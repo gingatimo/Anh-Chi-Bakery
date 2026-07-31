@@ -2,10 +2,13 @@
  *   chưa đăng nhập → ParentAuth; đã đăng nhập → Home (board chọn bé) trừ khi đang
  *   trong game của một bé hoặc Khu phụ huynh. Bé có PIN riêng → ChildLock trước khi vào.
  *   Không cấu hình Supabase (dev) → local-first 1 bé, bỏ qua board. */
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGame } from './game/store';
 import { supabaseConfigured } from './cloud/supabase';
 import { useSession } from './cloud/auth';
+import { pullChild } from './cloud/sync';
+import { getLastChild, clearLastChild } from './cloud/lastChild';
 import { ParentAuth, CreateChild } from './screens/Welcome';
 import { Home } from './screens/Home';
 import { ChildLock } from './screens/ChildLock';
@@ -28,12 +31,27 @@ export function Game() {
   const childPin = useGame((s) => s.childPin);
   const childUnlocked = useGame((s) => s.childUnlocked);
   const { session, ready } = useSession();
+  const [resuming, setResuming] = useState(false);
+  const resumeTried = useRef(false);
+
+  // Prod: reload → TỰ nạp lại BÉ GẦN NHẤT từ DB, vào thẳng màn đang chơi (con trỏ
+  // lastChild). Bé có PIN → ChildLock (có nút ← về board). Bé bị xoá/lỗi → về board.
+  useEffect(() => {
+    if (!supabaseConfigured || !ready || !session || started || resumeTried.current) return;
+    if (!getLastChild()) return;
+    resumeTried.current = true;
+    setResuming(true);
+    pullChild(getLastChild()!, session.user.id, { resume: true })
+      .then((ok) => { if (!ok) clearLastChild(); })
+      .finally(() => setResuming(false));
+  }, [ready, session, started]);
 
   const view = (() => {
     const gamePhase = () => (childPin && !childUnlocked ? 'childlock' : phase);
     if (supabaseConfigured) {
       if (!ready) return 'loading';
       if (!session) return 'login';
+      if (resuming && !started) return 'loading'; // đang tự nạp bé gần nhất
       if (phase === 'parent') return 'parent';
       if (GAME_PHASES.includes(phase)) return gamePhase();
       return 'home'; // 'home' / 'welcome' / mặc định → board chọn bé

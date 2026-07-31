@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useGame, gameDay } from '../game/store';
 import { flushNow } from '../cloud/autosave';
+import { clearLastChild } from '../cloud/lastChild';
 import { ShopScene } from '../assets/svg/Scene';
 import { Furniture, furnitureById } from '../assets/svg/Furniture';
 import { MapChar } from '../ui/MapChar';
@@ -63,7 +64,7 @@ export function Hub() {
           <IconButton label="Đổi nền sáng/tối" onClick={toggleTheme}>
             {settings.theme === 'light' ? '🌙' : '☀️'}
           </IconButton>
-          <IconButton label="Thoát về màn chọn bé" onClick={() => { void flushNow(); goto('home'); }}>
+          <IconButton label="Thoát về màn chọn bé" onClick={() => { void flushNow(); clearLastChild(); goto('home'); }}>
             🚪
           </IconButton>
         </div>
