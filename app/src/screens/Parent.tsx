@@ -10,6 +10,7 @@ import { BigButton, IconButton, Panel } from '../ui/kit';
 import { MapChar } from '../ui/MapChar';
 import { sfx } from '../ui/sfx';
 import { AccountSection } from './AccountSection';
+import { TaskManager } from './TaskManager';
 import { useSession } from '../cloud/auth';
 import { deleteChild } from '../cloud/sync';
 
@@ -248,6 +249,9 @@ function ParentPanel() {
             Báo cáo chi tiết (dạng bài hay sai, gợi ý đồng hành) sẽ có ở bản đầy đủ.
           </p>
         </Panel>
+
+        {/* Nhiệm vụ hằng ngày — giao việc thật, duyệt để thưởng xu */}
+        <TaskManager />
 
         {/* Tài khoản & sao lưu đám mây (Supabase) */}
         <AccountSection />

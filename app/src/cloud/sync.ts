@@ -22,6 +22,7 @@ function snapshot() {
     collected: s.collected,
     placed: s.placed,
     inventory: s.inventory,
+    tasks: s.tasks,
     counters: s.counters,
     settings: s.settings,
     daily: s.daily,

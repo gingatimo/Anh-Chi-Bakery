@@ -12,6 +12,7 @@ import { Reveal } from './screens/Reveal';
 import { StickerBook } from './screens/StickerBook';
 import { Shop } from './screens/Shop';
 import { Decorate } from './screens/Decorate';
+import { Tasks } from './screens/Tasks';
 import { Parent } from './screens/Parent';
 
 export function Game() {
@@ -45,6 +46,8 @@ export function Game() {
         return <Shop />;
       case 'decorate':
         return <Decorate />;
+      case 'tasks':
+        return <Tasks />;
       case 'parent':
         return <Parent />;
       default:

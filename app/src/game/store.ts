@@ -21,6 +21,7 @@ export type Phase =
   | 'book'
   | 'shop'
   | 'decorate'
+  | 'tasks'
   | 'parent';
 
 export interface AvatarConfig {
@@ -62,6 +63,17 @@ interface DayResult {
   total: number;
 }
 
+/** Nhiệm vụ hằng ngày ba mẹ giao cho bé (việc thật ngoài đời → duyệt → thưởng xu).
+ *  Lặp lại mỗi ngày: so `lastDone`/`raisedDay` với gameDay() để biết đã xong hôm nay. */
+export interface Task {
+  id: string;
+  title: string;
+  emoji: string;
+  xu: number; // thưởng khi ba mẹ duyệt
+  lastDone: string | null; // gameDay ba mẹ DUYỆT gần nhất
+  raisedDay: string | null; // gameDay bé "báo đã làm" gần nhất
+}
+
 interface GameState {
   // ── bền ──
   started: boolean;
@@ -76,6 +88,7 @@ interface GameState {
   collected: string[]; // sticker SƯU TẦM (catalog 1000) đã có
   placed: Placed[];
   inventory: string[]; // KHO: đồ đã mua/tặng, chưa đặt vào phòng
+  tasks: Task[]; // nhiệm vụ hằng ngày ba mẹ giao (thưởng xu khi duyệt)
   counters: { khach: number; me: number; days: number };
   settings: {
     sound: boolean;
@@ -113,7 +126,13 @@ interface GameState {
   placeSticker: (id: string, page: number, x: number, y: number, rotation: number) => void;
   moveSticker: (id: string, x: number, y: number, rotation: number) => void;
   buyFurniture: (id: string) => boolean;
+  buyRandomSticker: (cost: number) => string | null; // đổi xu lấy 1 sticker sưu tầm bất ngờ
   addToInventory: (id: string) => void;
+  // ── nhiệm vụ hằng ngày ──
+  addTask: (title: string, emoji: string, xu: number) => void;
+  removeTask: (id: string) => void;
+  toggleTaskDone: (id: string) => void; // ba mẹ duyệt / bỏ duyệt hôm nay (+/− xu)
+  childRaiseTask: (id: string) => void; // bé báo "đã làm" / hủy báo hôm nay
   placeFromInventory: (id: string, room: number, x: number, y: number) => void;
   movePlaced: (key: number, x: number, y: number) => void;
   removePlaced: (key: number) => void; // xoá khỏi phòng → trả về KHO
@@ -133,7 +152,7 @@ const START_LEVELS: Levels = { A: 1, B: 1 };
 let placedKey = 1;
 
 /** "Ngày chơi" reset lúc 04:00 giờ địa phương (thiết kế 9.7), không phải nửa đêm. */
-function gameDay(): string {
+export function gameDay(): string {
   const d = new Date(Date.now() - 4 * 3600 * 1000);
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
@@ -189,6 +208,7 @@ export const useGame = create<GameState>()(
       collected: [],
       placed: [],
       inventory: [],
+      tasks: [],
       counters: { khach: 0, me: 0, days: 0 },
       settings: { sound: true, theme: 'light', session: 'vua', restSeconds: 30, sessionsPerDay: 1, parentPin: null },
       daily: { date: '', used: 0, bonus: 0 },
@@ -221,6 +241,7 @@ export const useGame = create<GameState>()(
           collected: [],
           placed: [],
           inventory: [],
+          tasks: [], // mỗi bé có bộ nhiệm vụ riêng — ba mẹ giao lại
           counters: { khach: 0, me: 0, days: 0 },
           daily: { date: '', used: 0, bonus: 0 },
           phase: 'hub',
@@ -350,7 +371,50 @@ export const useGame = create<GameState>()(
         return true;
       },
 
+      // Đổi xu lấy 1 sticker sưu tầm CHƯA có (bất ngờ). Trả id để màn sổ khoe ra.
+      buyRandomSticker: (cost) => {
+        const s = get();
+        if (s.xu < cost) return null;
+        const [id] = grantCatalog(s.collected, 1);
+        if (!id) return null; // đã sưu tầm đủ bộ
+        set((st) => ({ xu: st.xu - cost, collected: [...st.collected, id] }));
+        return id;
+      },
+
       addToInventory: (id) => set((s) => ({ inventory: [...s.inventory, id] })),
+
+      addTask: (title, emoji, xu) =>
+        set((s) => ({
+          tasks: [
+            ...s.tasks,
+            { id: crypto.randomUUID(), title: title.trim() || 'Nhiệm vụ', emoji: emoji || '⭐', xu: Math.max(0, Math.round(xu)), lastDone: null, raisedDay: null },
+          ],
+        })),
+
+      removeTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+
+      // Ba mẹ duyệt: đánh dấu xong hôm nay + cộng xu; bấm lại (bỏ duyệt) → hoàn xu.
+      toggleTaskDone: (id) =>
+        set((s) => {
+          const today = gameDay();
+          const t = s.tasks.find((x) => x.id === id);
+          if (!t) return {};
+          const doneToday = t.lastDone === today;
+          return {
+            xu: doneToday ? Math.max(0, s.xu - t.xu) : s.xu + t.xu,
+            tasks: s.tasks.map((x) => (x.id === id ? { ...x, lastDone: doneToday ? null : today, raisedDay: null } : x)),
+          };
+        }),
+
+      // Bé "báo đã làm" (chờ ba mẹ duyệt). Bấm lại để hủy báo. Đã duyệt rồi thì bỏ qua.
+      childRaiseTask: (id) =>
+        set((s) => {
+          const today = gameDay();
+          const t = s.tasks.find((x) => x.id === id);
+          if (!t || t.lastDone === today) return {};
+          const raised = t.raisedDay === today;
+          return { tasks: s.tasks.map((x) => (x.id === id ? { ...x, raisedDay: raised ? null : today } : x)) };
+        }),
 
       placeFromInventory: (id, room, x, y) =>
         set((s) => {
@@ -416,6 +480,7 @@ export const useGame = create<GameState>()(
         collected: s.collected,
         placed: s.placed,
         inventory: s.inventory,
+        tasks: s.tasks,
         counters: s.counters,
         settings: s.settings,
         daily: s.daily,

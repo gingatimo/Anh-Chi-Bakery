@@ -3,7 +3,7 @@
  * sticker, trang trí) vẫn mở — không bao giờ lấy lại thứ bé đã đạt. */
 import { useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { useGame } from '../game/store';
+import { useGame, gameDay } from '../game/store';
 import { ShopScene } from '../assets/svg/Scene';
 import { Furniture, furnitureById } from '../assets/svg/Furniture';
 import { MapChar } from '../ui/MapChar';
@@ -15,6 +15,7 @@ export function Hub() {
   const day = useGame((s) => s.day);
   const placed = useGame((s) => s.placed);
   const stickers = useGame((s) => s.stickers);
+  const tasks = useGame((s) => s.tasks);
   const settings = useGame((s) => s.settings);
   const daily = useGame((s) => s.daily);
   const openShop = useGame((s) => s.openShop);
@@ -31,6 +32,8 @@ export function Hub() {
 
   void daily; // để re-render khi số lượt trong ngày đổi
   const closed = sessionsLeft() <= 0;
+  const today = gameDay();
+  const tasksTodo = tasks.filter((t) => t.lastDone !== today).length; // nhiệm vụ chưa xong hôm nay
 
   const mapSays = closed
     ? 'Tiệm nghỉ hôm nay rồi, mai mình mở nhé!'
@@ -127,6 +130,9 @@ export function Hub() {
         </BigButton>
         <BigButton tone="butter" onClick={() => goto('shop')}>🛍️ Cửa hàng</BigButton>
         <BigButton tone="sage" onClick={() => goto('decorate')}>🪴 Trang trí</BigButton>
+        <BigButton tone="rose" onClick={() => goto('tasks')}>
+          🎯 Nhiệm vụ {tasksTodo > 0 && `(${tasksTodo})`}
+        </BigButton>
       </div>
     </div>
   );

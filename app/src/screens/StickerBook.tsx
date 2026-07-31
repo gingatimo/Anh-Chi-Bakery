@@ -382,11 +382,28 @@ function PendingSticker({
 
 /* ══════════════════════ TAB 2 — BỘ SƯU TẬP (catalog 1000) ══════════════════════ */
 
+const STICKER_COST = 15; // xu để đổi 1 sticker sưu tầm bất ngờ
+
 function CollectionTab({ reduce }: { reduce: boolean }) {
   const collected = useGame((s) => s.collected);
+  const xu = useGame((s) => s.xu);
+  const buyRandomSticker = useGame((s) => s.buyRandomSticker);
   const all = useMemo<CatalogSticker[]>(() => catalog(), []); // 1000 phần tử, dựng 1 lần
   const [catKey, setCatKey] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [buyMsg, setBuyMsg] = useState<string | null>(null);
+
+  const openSurprise = () => {
+    const id = buyRandomSticker(STICKER_COST);
+    if (id === null) {
+      sfx.tap();
+      setBuyMsg(xu < STICKER_COST ? `Cần ${STICKER_COST} xu để mở — làm nhiệm vụ hoặc bán bánh nhé!` : 'Con đã sưu tầm đủ bộ rồi! 🎉');
+      return;
+    }
+    sfx.sparkle();
+    const s = all.find((x) => x.id === id);
+    setBuyMsg(`Mở được ${s ? s.label : 'một sticker mới'}! 🎁`);
+  };
 
   const collectedSet = useMemo(() => new Set(collected), [collected]);
   // Lọc theo thể loại (O(1000) tra Set — rẻ). Chưa cắt trang ở bước này.
@@ -428,9 +445,18 @@ function CollectionTab({ reduce }: { reduce: boolean }) {
       </div>
 
       {/* Dòng tiến độ */}
-      <p style={{ color: 'var(--text-soft)', fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>
+      <p style={{ color: 'var(--text-soft)', fontSize: 16, fontWeight: 600, margin: '0 0 12px' }}>
         Đã sưu tầm: <strong style={{ color: 'var(--text)' }}>{doneInFilter}</strong>/{filtered.length}
       </p>
+
+      {/* Đổi xu lấy sticker bất ngờ (tiêu xu kiếm từ nhiệm vụ / bán bánh) */}
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+        <BigButton tone="butter" onClick={openSurprise}>
+          🎁 Mở sticker mới ({STICKER_COST} xu)
+        </BigButton>
+        <span className="tnum" style={{ color: 'var(--text-soft)', fontWeight: 600 }}>Đang có {xu} xu</span>
+        {buyMsg && <span style={{ color: 'var(--sage-dark)', fontWeight: 700 }}>{buyMsg}</span>}
+      </div>
 
       {/* Lưới sticker — CHỈ render 24 ô của trang hiện tại */}
       <motion.div
