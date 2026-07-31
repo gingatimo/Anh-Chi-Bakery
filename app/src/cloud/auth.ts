@@ -23,7 +23,13 @@ export function useSession() {
 
 export async function signUp(email: string, password: string) {
   if (!supabase) throw new Error('Chưa cấu hình Supabase');
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    // link xác nhận email quay lại ĐÚNG site đang đăng ký (dev/prod), không phải
+    // Site URL mặc định. URL này phải nằm trong Redirect URLs của project.
+    options: { emailRedirectTo: `${window.location.origin}/` },
+  });
   if (error) throw error;
   return data; // session có thể null nếu Supabase bật xác nhận email
 }
