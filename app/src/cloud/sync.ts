@@ -1,0 +1,77 @@
+/**
+ * sync.ts — đồng bộ dữ liệu chơi ↔ Supabase (thiết kế 9.3, 9.9).
+ * LOCAL-FIRST: chỉ chạy khi phụ huynh đã đăng nhập; gameplay không bao giờ chờ.
+ * Lưu cả bản chụp save vào 1 dòng child_profiles (JSONB) — đơn giản cho MVP;
+ * bản đầy đủ (schema chuẩn hoá + hợp nhất theo bảng) là việc của M2 (9.4, 9.5).
+ */
+import { supabase } from './supabase';
+import { useGame } from '../game/store';
+
+type S = ReturnType<typeof useGame.getState>;
+
+function snapshot() {
+  const s = useGame.getState();
+  return {
+    shopName: s.shopName,
+    avatar: s.avatar,
+    lop: s.lop,
+    day: s.day,
+    xu: s.xu,
+    levels: s.levels,
+    stickers: s.stickers,
+    collected: s.collected,
+    placed: s.placed,
+    inventory: s.inventory,
+    counters: s.counters,
+    settings: s.settings,
+    daily: s.daily,
+  };
+}
+
+/** Đẩy toàn bộ save local lên cloud (liên kết / sao lưu). */
+export async function pushSnapshot(parentId: string): Promise<void> {
+  if (!supabase) throw new Error('Chưa cấu hình Supabase');
+  const s = useGame.getState();
+  let childId = s.childId;
+  if (!childId) {
+    childId = crypto.randomUUID();
+    useGame.setState({ childId });
+  }
+  const { error } = await supabase.from('child_profiles').upsert(
+    {
+      id: childId,
+      parent_id: parentId,
+      ten_hien_thi: s.shopName, // biệt danh/tên tiệm — KHÔNG phải tên thật (9.8)
+      ten_tiem: s.shopName,
+      lop: s.lop,
+      save_state: snapshot(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'id' }
+  );
+  if (error) throw error;
+}
+
+/** Tải save mới nhất của tài khoản về máy này (đa thiết bị). */
+export async function pullSnapshot(parentId: string): Promise<boolean> {
+  if (!supabase) throw new Error('Chưa cấu hình Supabase');
+  const { data, error } = await supabase
+    .from('child_profiles')
+    .select('id, save_state, updated_at')
+    .eq('parent_id', parentId)
+    .order('updated_at', { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  const row = data?.[0];
+  if (!row) return false;
+  const snap = (row.save_state ?? {}) as Partial<S>;
+  useGame.setState({ ...snap, childId: row.id as string, started: true });
+  return true;
+}
+
+/** Sau khi đăng ký/đăng nhập: có dữ liệu trên cloud thì tải về, chưa có thì đẩy lên. */
+export async function syncOnAuth(parentId: string): Promise<'pulled' | 'pushed'> {
+  if (await pullSnapshot(parentId)) return 'pulled';
+  await pushSnapshot(parentId);
+  return 'pushed';
+}

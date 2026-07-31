@@ -1,0 +1,155 @@
+/* ============================================================
+   Tiệm Bánh Anh Chi — global styles
+   Phong cách: vector giấy cắt + vân giấy phủ toàn cục (thiết kế 10.2)
+   ============================================================ */
+
+:root {
+  /* 12 màu thế giới (đồng bộ với design/tokens.ts) */
+  --ink: #4a3b32;
+  --cream: #fbf1de;
+  --paper: #fffdf6;
+  --wood: #e7b981;
+  --wood-dark: #c98f55;
+  --rose: #eba7a0;
+  --rose-dark: #d67b78;
+  --peach: #f3a46e;
+  --sage: #a9c6a0;
+  --sage-dark: #7ba07e;
+  --sky: #9cc7d6;
+  --butter: #f2ce85;
+
+  --cream-deep: #f3e3c6;
+  --ink-soft: rgba(74, 59, 50, 0.55);
+
+  /* nền & bề mặt (theo theme) */
+  --bg: var(--cream);
+  --bg-panel: var(--paper);
+  --bg-sunk: var(--cream-deep);
+  --text: var(--ink);
+  --text-soft: var(--ink-soft);
+
+  /* bóng đổ một hướng (135°) */
+  --shadow: 4px 4px 10px rgba(74, 59, 50, 0.16);
+  --shadow-soft: 2px 3px 6px rgba(74, 59, 50, 0.12);
+  --shadow-lift: 8px 10px 22px rgba(74, 59, 50, 0.2);
+
+  --radius-sm: 8px;
+  --radius-lg: 24px;
+
+  --font-display: 'Quicksand', 'Be Vietnam Pro', system-ui, sans-serif;
+  --font-body: 'Be Vietnam Pro', system-ui, sans-serif;
+
+  --grain-opacity: 0.06;
+
+  color-scheme: light;
+}
+
+/* Chế độ tối / ánh sáng ấm cho buổi tối (thiết kế 9.6) — KHÔNG lạnh, giữ tông nâu ấm */
+:root[data-theme='dark'] {
+  --bg: #2e2622;
+  --bg-panel: #3a302a;
+  --bg-sunk: #271f1b;
+  --text: #f6ead3;
+  --text-soft: rgba(246, 234, 211, 0.62);
+  --cream: #3a302a;
+  --paper: #43382f;
+  --cream-deep: #2b231e;
+  --shadow: 4px 4px 12px rgba(0, 0, 0, 0.32);
+  --shadow-soft: 2px 3px 7px rgba(0, 0, 0, 0.26);
+  --shadow-lift: 8px 10px 24px rgba(0, 0, 0, 0.4);
+  --grain-opacity: 0.09;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 18px; /* tối thiểu 18px (9.6) */
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  user-select: none;
+}
+
+#root {
+  isolation: isolate;
+}
+
+/* Số luôn tabular để cột tiền thẳng hàng (10.9) */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+h1,
+h2,
+h3,
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  line-height: 1.15;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+/* ---- Vân giấy phủ toàn màn hình (một lớp, chi phí ~0) ---- */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+:root[data-theme='dark'] .grain-overlay {
+  mix-blend-mode: overlay;
+}
+
+/* ---- Focus rõ ràng (a11y) ---- */
+:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ---- Tôn trọng prefers-reduced-motion (10.9): bỏ rung lắc, giữ fade ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.08ms !important;
+  }
+}
+
+/* Cuộn mượt trong panel khi cần */
+.scroll {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
