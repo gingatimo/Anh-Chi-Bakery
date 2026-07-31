@@ -3,7 +3,46 @@
 **Phiên bản:** 0.6 — asset sinh bằng AI agent qua code: generators SVG + tokens + linter + vòng render–review; bỏ Rive, chuyển puppet code-driven
 **Ngày:** 30/07/2026
 **Tên quốc tế (dự phòng):** Crumb & Coin
-**Trạng thái:** Sẵn sàng bắt đầu M0. Chờ xác thực chương trình học và tra cứu nhãn hiệu.
+**Trạng thái:** Đang triển khai — đã vượt cột mốc M1 (vòng lặp lõi chạy end-to-end) + nhiều mở rộng. Xem [§0 Trạng thái triển khai](#0-trạng-thái-triển-khai-cập-nhật-31072026).
+
+---
+
+## 0. Trạng thái triển khai (cập nhật 31/07/2026)
+
+> Tài liệu này là **tầm nhìn thiết kế** (giữ nguyên làm tham chiếu). Mục này ghi
+> **thực tế đã build** và các điểm **lệch có chủ đích**. Code ở `app/` (Vite + React
+> + TS); README: [`app/README.md`](app/README.md).
+
+**Đã làm (chạy được):** vòng lặp lõi §4 (khai trương → ngày bán → làm bánh/tính
+tiền/thối tiền kéo-thả → nghỉ mắt → tổng kết → bóc-dán sticker) · engine §3.3–3.5
+(A1/A4/A5/A6/B1/B2, độ khó thích ứng, nhiễu theo lỗi thật) · lớp 3/4 §3.6 · giới hạn
+ngày/phiên §9.7 · cổng phụ huynh §8 (PIN, báo cáo gọn, cấu hình thời gian) · onboarding
+tách vai trò bố mẹ/con · trang trí §6 (kho + kéo-thả).
+
+**Lệch CÓ CHỦ ĐÍCH so với tài liệu:**
+
+| Mục | Thiết kế | Thực tế | Vì sao |
+|---|---|---|---|
+| §9.3, §9.9 | **Local-first** (cloud là lớp sao lưu) | **DB-first**: Supabase là nguồn chân lý, autosave lên cloud, `localStorage` chỉ là cache | Yêu cầu người dùng: "bỏ local-first, tất cả lưu DB" |
+| §9.2, §10 | Sân khấu **PixiJS** + puppet | **DOM + SVG + Framer Motion** | Pixi hoãn M3; DOM/SVG đủ đẹp + ra sớm |
+| §2 | Nhiều hồ sơ trẻ = v1.1 | **ĐÃ có** (1 phụ huynh → nhiều bé) | Làm sớm theo yêu cầu |
+| §5.1 | 48 sticker (6×8) | **16 cột mốc + 1000 sticker sưu tầm** (sinh bằng code) | Yêu cầu "làm giàu asset" |
+| §6, §7 | ~15 vật phẩm trang trí | **~100 vật phẩm, 7 phòng** | Yêu cầu "làm giàu đồ trang trí" |
+| §10.5 | Asset qua AI-agent-code | ✅ đúng hướng: SVG generator từ `tokens.ts` | — |
+
+**Thêm MỚI (ngoài tài liệu gốc, theo yêu cầu):**
+- **Nhiệm vụ hằng ngày**: ba mẹ giao việc thật (chọn mẫu/tự tạo) → bé báo đã làm →
+  ba mẹ **duyệt** → bé nhận **xu** (tiêu ở cửa hàng / đổi sticker). Reset mốc 04:00.
+- **Đổi xu lấy sticker** sưu tầm (15 xu/lần).
+- **PWA**: cài lên màn hình chính (manifest + icon + service worker cache vỏ).
+- **Deploy tự động**: GitHub Action → Cloudflare Pages khi push tag `x.y.z`; miền
+  `play.anhchistore.com`. SMTP Resend + mail xác nhận tiếng Việt; phiên đăng nhập ≥1 tháng.
+- **Phân vùng DB**: bảng nằm trong schema riêng `play` (dùng chung DB với store
+  `anhchistore` tương lai, tách project gọn khi scale).
+
+**Chưa làm (theo lộ trình §12):** sân khấu Pixi + puppet (M3), báo cáo tuần chi tiết +
+paywall §8.1 (M4), đủ 13 kỹ năng §3.1 (còn A2/A3/A7/B3–B6), resume giữa phiên, xử lý
+xung đột đồng bộ đa thiết bị §9.5 (hiện last-write-wins), Tiệm tự do §3.6.
 
 ---
 
@@ -88,7 +127,7 @@ Ghi rõ để chống scope creep:
 - ❌ PvP, bảng xếp hạng, bạn bè, guild/lớp học
 - ❌ Cổng giáo viên
 - ❌ Chấm bài bằng AI, nhận diện chữ viết tay
-- ❌ Nhiều hồ sơ trẻ trên một tài khoản (v1.1 — schema đã sẵn sàng)
+- ✅ Nhiều hồ sơ trẻ trên một tài khoản (ĐÃ làm sớm — xem [§0](#0-trạng-thái-triển-khai-cập-nhật-31072026))
 - ❌ Lồng tiếng (dùng chữ + biểu tượng)
 - ❌ iOS/iPad (v1.1)
 
@@ -436,6 +475,11 @@ Lõi PWA, bọc lại để ra nhiều nền tảng từ một codebase:
 > **Không dùng Flutter/Flame.** Flutter web tải WASM nặng, render chữ kém, không hợp game này.
 
 ### 9.3 Nguyên tắc local-first
+
+> ⚠️ **ĐÃ ĐỔI (31/07/2026, xem [§0](#0-trạng-thái-triển-khai-cập-nhật-31072026)):** bản
+> hiện tại theo **DB-first** — Supabase là nguồn chân lý (autosave lên cloud, tải về
+> khi mở), `localStorage` chỉ còn là **cache**. Có Supabase mà chưa đăng nhập thì bắt
+> login (không cho chơi bằng cache). Phần dưới là thiết kế local-first gốc, giữ để tham chiếu.
 
 **Gameplay không bao giờ chờ mạng.** Ràng buộc cứng.
 
