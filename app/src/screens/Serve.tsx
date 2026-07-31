@@ -5,6 +5,7 @@ import { sfx } from '../ui/sfx';
 import { ChooseNote } from './steps/ChooseNote';
 import { BakeTray } from './steps/BakeTray';
 import { DivideStep } from './steps/DivideStep';
+import { MeasureStep } from './steps/MeasureStep';
 import { Register } from './steps/Register';
 import { ChangeTray } from './steps/ChangeTray';
 
@@ -51,6 +52,7 @@ export function Serve() {
       {step.q.mode === 'divide' && (
         <DivideStep key={key} {...common} cake={customer.orderCakes[0] ?? 'cupcake'} />
       )}
+      {step.q.mode === 'measure' && <MeasureStep key={key} {...common} />}
       {step.q.mode === 'keypad' && <Register key={key} {...common} />}
       {step.q.mode === 'money-drag' && <ChangeTray key={key} {...common} />}
     </div>

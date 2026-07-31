@@ -54,11 +54,14 @@ function orderCakesFor(n: number): CakeKind[] {
 /** Kỹ năng nhóm B theo lớp (GDPT 2018). Nhân bảng + CHIA (bảng chia là nội dung lớp
  *  3). Lớp 4 thêm chia CÓ DƯ (B5) và nhân 6–9 nhiều hơn. */
 function bakeSkillForGrade(lop: 3 | 4): SkillId {
-  const pool: SkillId[] = lop >= 4 ? ['B2', 'B2', 'B3', 'B5'] : ['B1', 'B2', 'B3'];
+  // Khâu chuẩn bị: làm bánh (nhân), chia hộp (chia), HOẶC cân/đong nguyên liệu (đo lường).
+  const pool: SkillId[] = lop >= 4 ? ['B2', 'B2', 'B3', 'B5', 'C1'] : ['B1', 'B2', 'B3', 'C1'];
   return pick(pool);
 }
 
 const isDivide = (s: SkillId) => s === 'B3' || s === 'B5';
+const prepLabel = (s: SkillId) =>
+  s === 'C1' ? 'Cân nguyên liệu' : isDivide(s) ? 'Chia bánh vào hộp' : 'Làm bánh cho khách';
 
 /** Một khách ngày thường: làm bánh / chia hộp (B) → tính tiền (A4) → thối tiền (A6 kéo). */
 function normalCustomer(sched: QuestionScheduler, levels: Levels, lop: 3 | 4): CustomerPlan {
@@ -83,7 +86,7 @@ function normalCustomer(sched: QuestionScheduler, levels: Levels, lop: 3 | 4): C
     given,
     baseXu: 8 + Math.floor(Math.random() * 6),
     steps: [
-      { kind: 'bake', q: bake, label: isDivide(bakeSkill) ? 'Chia bánh vào hộp' : 'Làm bánh cho khách' },
+      { kind: 'bake', q: bake, label: prepLabel(bakeSkill) },
       { kind: 'total', q: total, label: 'Tính tiền cả đơn' },
       { kind: 'change', q: change, label: 'Thối tiền cho khách' },
     ],
@@ -180,4 +183,5 @@ export const SKILL_LABEL: Record<SkillId, string> = {
   B2: 'Bảng nhân 6–9',
   B3: 'Chia đều (bảng chia)',
   B5: 'Chia có dư',
+  C1: 'Cân/đong nguyên liệu',
 };

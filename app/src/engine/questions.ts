@@ -9,10 +9,10 @@
 import { formatVND, makeChange, pick, shuffle, smallestNoteAbove, NOTES } from './money';
 import type { NoteValue } from './money';
 
-export type QMode = 'choose' | 'keypad' | 'money-drag' | 'tray-drag' | 'divide';
-// Nhóm A = tiền tệ; nhóm B = nhân/chia. B3 chia trong bảng (lớp 3), B5 chia có dư
-// (lớp 3–4) — bổ sung cho khớp GDPT 2018 (chương trình CÓ phép chia; game còn thiếu).
-export type SkillId = 'A1' | 'A4' | 'A5' | 'A6' | 'B1' | 'B2' | 'B3' | 'B5';
+export type QMode = 'choose' | 'keypad' | 'money-drag' | 'tray-drag' | 'divide' | 'measure';
+// Nhóm A = tiền tệ; B = nhân/chia; C = đo lường (GDPT 2018 lớp 3–4).
+// B3 chia trong bảng, B5 chia có dư; C1 cân/đong nguyên liệu (khối lượng g, dung tích ml).
+export type SkillId = 'A1' | 'A4' | 'A5' | 'A6' | 'B1' | 'B2' | 'B3' | 'B5' | 'C1';
 
 export interface Question {
   skill: SkillId;
@@ -34,6 +34,7 @@ export interface Question {
     rows?: number;
     per?: number;
     groups?: number; // B3: số hộp cần chia đều
+    unit?: string; // C1: đơn vị đo (g, ml…)
   };
   hints: [string, string, string];
   /** chẩn đoán lỗi khi nhập số — trả về gợi ý nhắm đúng lỗi, hoặc null */
@@ -339,6 +340,46 @@ function genB5(level: number): Question {
   };
 }
 
+// ─────────────────────────────────────────────────────────────
+// C1 — Cân/đong nguyên liệu (measure): đo khối lượng (g) / dung tích (ml) (lớp 3)
+// ─────────────────────────────────────────────────────────────
+const INGREDIENTS = [
+  { unit: 'g', label: 'bột', step: 50 },
+  { unit: 'g', label: 'đường', step: 50 },
+  { unit: 'g', label: 'bơ', step: 50 },
+  { unit: 'ml', label: 'sữa', step: 50 },
+  { unit: 'ml', label: 'nước', step: 100 },
+];
+function genC1(level: number): Question {
+  const ing = pick(INGREDIENTS);
+  const step = ing.step;
+  const maxSteps = level <= 2 ? 8 : 18; // level cao → số lớn hơn (tới ~900–1800)
+  const targetSteps = 2 + Math.floor(Math.random() * (maxSteps - 1));
+  const haveSteps = 1 + Math.floor(Math.random() * (targetSteps - 1)); // 1..(target-1) → luôn < target
+  const target = targetSteps * step;
+  const have = haveSteps * step;
+  const answer = target - have; // cần thêm bao nhiêu
+  const pool = shuffle(
+    [answer + step, answer - step, answer + 2 * step].filter((v, i, a) => a.indexOf(v) === i && v !== answer && v > 0)
+  );
+  const choices = shuffle([answer, ...pool.slice(0, 3)]);
+  return {
+    skill: 'C1',
+    level,
+    mode: 'measure',
+    key: `C1:${ing.label}:${have}/${target}`,
+    prompt: `Công thức cần ${target}${ing.unit} ${ing.label}. Cân đang có ${have}${ing.unit}. Cần thêm mấy ${ing.unit}?`,
+    answer,
+    choices,
+    context: { total: target, given: have, unit: ing.unit },
+    hints: [
+      'Lấy số CẦN trừ số ĐANG CÓ nhé.',
+      `${target} − ${have} = ?`,
+      `Cần thêm ${answer}${ing.unit} nữa.`,
+    ],
+  };
+}
+
 const GEN: Record<SkillId, (level: number, lop: 3 | 4) => Question> = {
   A1: (l) => genA1(l),
   A4: (l, lop) => genA4(l, lop),
@@ -348,6 +389,7 @@ const GEN: Record<SkillId, (level: number, lop: 3 | 4) => Question> = {
   B2: (l) => genB2(l),
   B3: (l) => genB3(l),
   B5: (l) => genB5(l),
+  C1: (l) => genC1(l),
 };
 
 export function generate(skill: SkillId, level: number, lop: 3 | 4 = 3): Question {

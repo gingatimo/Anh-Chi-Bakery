@@ -147,6 +147,20 @@ export function runSelfCheck(): CheckResult[] {
     add('B5: chia có dư đúng (số thừa = N mod hộp)', ok, why);
   }
 
+  // C1 — cân/đong: cần thêm = cần − đang có > 0; choices chứa đáp án
+  {
+    let ok = true,
+      why = '';
+    for (let i = 0; i < N; i++) {
+      const q = generate('C1', 1 + (i % 5));
+      const { total, given } = q.context!;
+      if (q.answer !== total! - given!) { ok = false; why = `C1 ${q.answer}≠${total}-${given}`; break; }
+      if (!(q.answer > 0)) { ok = false; why = 'C1 cần thêm ≤ 0'; break; }
+      if (!q.choices!.includes(q.answer)) { ok = false; why = 'C1 choices thiếu đáp án'; break; }
+    }
+    add('C1: cân/đong đúng (cần thêm = cần − có)', ok, why);
+  }
+
   // Scheduler — không lặp prompt trong cửa sổ 20
   {
     const sch = new QuestionScheduler();
