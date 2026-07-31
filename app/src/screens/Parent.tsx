@@ -11,6 +11,7 @@ import { MapChar } from '../ui/MapChar';
 import { sfx } from '../ui/sfx';
 import { AccountSection } from './AccountSection';
 import { TaskManager } from './TaskManager';
+import { ChildSwitcher } from './ChildSwitcher';
 import { useSession } from '../cloud/auth';
 import { deleteChild } from '../cloud/sync';
 
@@ -210,6 +211,7 @@ function ParentPanel() {
   const toggleTheme = useGame((s) => s.toggleTheme);
   const resetAll = useGame((s) => s.resetAll);
   const childId = useGame((s) => s.childId);
+  const shopName = useGame((s) => s.shopName);
   const { session } = useSession();
 
   function exportJson() {
@@ -232,9 +234,12 @@ function ParentPanel() {
           <h1 style={{ fontSize: 24 }}>Khu phụ huynh</h1>
         </div>
 
+        {/* Chọn/đổi hồ sơ bé (nhiều con) — báo cáo & nhiệm vụ bên dưới theo bé đang chọn */}
+        <ChildSwitcher />
+
         {/* Báo cáo */}
         <Panel style={{ marginBottom: 16 }}>
-          <h3 style={{ marginBottom: 4 }}>Tiến bộ của bé</h3>
+          <h3 style={{ marginBottom: 4 }}>Tiến bộ của bé · <span style={{ color: 'var(--peach-dark, #C67C43)' }}>{shopName}</span></h3>
           <p style={{ color: 'var(--text-soft)', fontSize: 14, marginBottom: 14 }}>Nói về tiến bộ của chính bé — không so sánh với bạn khác.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
             <Stat value={counters.days} label="ngày đã chơi" />

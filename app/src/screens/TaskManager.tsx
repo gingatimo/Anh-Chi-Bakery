@@ -11,6 +11,7 @@ const XU_OPTIONS = [5, 10, 15, 20];
 
 export function TaskManager() {
   const tasks = useGame((s) => s.tasks);
+  const shopName = useGame((s) => s.shopName);
   const toggleTaskDone = useGame((s) => s.toggleTaskDone);
   const removeTask = useGame((s) => s.removeTask);
   const [adding, setAdding] = useState(false);
@@ -20,7 +21,8 @@ export function TaskManager() {
   return (
     <Panel style={{ marginBottom: 16 }}>
       <h3 style={{ marginBottom: 4 }}>
-        🎯 Nhiệm vụ hằng ngày {pendingCount > 0 && <span style={{ color: 'var(--rose-dark)' }}>· {pendingCount} bé báo chờ duyệt</span>}
+        🎯 Nhiệm vụ · <span style={{ color: 'var(--peach-dark, #C67C43)' }}>{shopName}</span>
+        {pendingCount > 0 && <span style={{ color: 'var(--rose-dark)' }}> · {pendingCount} chờ duyệt</span>}
       </h3>
       <p style={{ color: 'var(--text-soft)', fontSize: 14, marginBottom: 14 }}>
         Giao việc thật cho bé. Bé làm xong sẽ “báo đã làm”, bố mẹ bấm <strong style={{ color: 'var(--text)' }}>Duyệt</strong> để thưởng xu.
