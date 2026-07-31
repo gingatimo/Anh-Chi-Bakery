@@ -19,6 +19,7 @@ export type Phase =
   | 'summary'
   | 'reveal'
   | 'book'
+  | 'home' // board danh sách bé (sau khi phụ huynh đăng nhập)
   | 'shop'
   | 'decorate'
   | 'tasks'
@@ -81,6 +82,7 @@ interface GameState {
   avatar: AvatarConfig;
   lop: 3 | 4; // lớp của bé — quyết định độ khó & mở khoá kỹ năng (thiết kế 3.6)
   childId: string; // UUID hồ sơ trẻ (sinh phía client) — khoá đồng bộ cloud (9.9)
+  childPin: string | null; // mã PIN RIÊNG của bé để vào hồ sơ (tùy chọn; bố mẹ đặt/reset)
   day: number; // ngày SẮP chơi (1 = khai trương)
   xu: number;
   levels: Levels;
@@ -113,6 +115,7 @@ interface GameState {
   giftFurniture: string | null;
   promoted: boolean; // vừa lên lớp (hiện ở tổng kết)
   addingChild: boolean; // đang tạo hồ sơ bé mới (onboarding lại)
+  childUnlocked: boolean; // đã nhập đúng PIN của bé trong phiên này (tạm, không lưu)
 
   // ── actions ──
   startGame: (shopName: string, avatar: AvatarConfig, lop: 3 | 4) => void;
@@ -142,6 +145,8 @@ interface GameState {
   setRest: (seconds: number) => void;
   setSessionsPerDay: (n: number) => void;
   setParentPin: (pin: string | null) => void;
+  setChildPin: (pin: string | null) => void; // đặt/xoá PIN riêng của bé đang chọn
+  unlockChild: () => void; // đã nhập đúng PIN của bé → cho vào
   refreshDaily: () => void;
   grantBonusSession: () => void;
   sessionsLeft: () => number;
@@ -201,6 +206,7 @@ export const useGame = create<GameState>()(
       avatar: { apron: '#EBA7A0', hair: '#4A3B32' },
       lop: 3,
       childId: '',
+      childPin: null,
       day: 1,
       xu: 0,
       levels: { ...START_LEVELS },
@@ -224,16 +230,19 @@ export const useGame = create<GameState>()(
       giftFurniture: null,
       promoted: false,
       addingChild: false,
+      childUnlocked: true,
 
       // Tạo hồ sơ bé MỚI: reset sạch tiến trình + childId riêng (mỗi bé một hồ sơ).
       startGame: (shopName, avatar, lop) =>
         set({
           started: true,
           addingChild: false,
+          childUnlocked: true, // bé mới chưa có PIN → vào thẳng
           shopName: shopName.trim() || 'Tiệm Bánh Anh Chi',
           avatar,
           lop,
           childId: crypto.randomUUID(),
+          childPin: null,
           levels: lop >= 4 ? { A: 3, B: 3 } : { A: 1, B: 1 }, // lớp 4 bắt đầu khó hơn
           day: 1,
           xu: 0,
@@ -247,7 +256,7 @@ export const useGame = create<GameState>()(
           phase: 'hub',
         }),
 
-      beginAddChild: () => set({ addingChild: true, phase: 'welcome' }),
+      beginAddChild: () => set({ addingChild: true, phase: 'home' }),
 
       openShop: () => {
         get().refreshDaily();
@@ -444,6 +453,8 @@ export const useGame = create<GameState>()(
       setRest: (seconds) => set((s) => ({ settings: { ...s.settings, restSeconds: seconds } })),
       setSessionsPerDay: (n) => set((s) => ({ settings: { ...s.settings, sessionsPerDay: Math.max(1, n) } })),
       setParentPin: (parentPin) => set((s) => ({ settings: { ...s.settings, parentPin } })),
+      setChildPin: (childPin) => set({ childPin }),
+      unlockChild: () => set({ childUnlocked: true }),
       refreshDaily: () => {
         const today = gameDay();
         if (get().daily.date !== today) set({ daily: { date: today, used: 0, bonus: 0 } });
@@ -473,6 +484,7 @@ export const useGame = create<GameState>()(
         avatar: s.avatar,
         lop: s.lop,
         childId: s.childId,
+        childPin: s.childPin,
         day: s.day,
         xu: s.xu,
         levels: s.levels,
@@ -490,9 +502,13 @@ export const useGame = create<GameState>()(
         const p = (persisted ?? {}) as Partial<GameState>;
         return { ...current, ...p, settings: { ...current.settings, ...(p.settings ?? {}) } };
       },
-      // khi khôi phục: luôn về hub (không resume giữa phiên ở slice này)
+      // khi khôi phục: về HOME (board chọn bé) — bé tự chọn hồ sơ để vào chơi.
+      // (Dev không Supabase: Game router map 'home' → 'hub' vì chỉ 1 bé cục bộ.)
       onRehydrateStorage: () => (state) => {
-        if (state && state.started) state.phase = 'hub';
+        if (state && state.started) {
+          state.phase = 'home';
+          state.childUnlocked = false; // vào lại phải nhập PIN của bé nếu có
+        }
       },
     }
   )

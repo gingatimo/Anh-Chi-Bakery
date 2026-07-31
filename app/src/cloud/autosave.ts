@@ -30,3 +30,18 @@ export function initAutosave() {
     }, 1500);
   });
 }
+
+/** Lưu NGAY lên DB (khi thoát về Home / đổi bé) — không chờ debounce. */
+export async function flushNow() {
+  if (!supabase) return;
+  const s = useGame.getState();
+  if (!s.started || !s.childId) return;
+  const { data } = await supabase.auth.getSession();
+  const uid = data.session?.user.id;
+  if (!uid) return;
+  try {
+    await pushSnapshot(uid);
+  } catch {
+    /* offline — cache local đã có, để autosave thử lại sau */
+  }
+}

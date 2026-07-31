@@ -12,6 +12,7 @@ import { sfx } from '../ui/sfx';
 import { AccountSection } from './AccountSection';
 import { TaskManager } from './TaskManager';
 import { ChildSwitcher } from './ChildSwitcher';
+import { ChildPinPanel } from './ChildPinPanel';
 import { useSession } from '../cloud/auth';
 import { deleteChild } from '../cloud/sync';
 
@@ -230,12 +231,15 @@ function ParentPanel() {
     <div className="scroll" style={{ minHeight: '100dvh', maxHeight: '100dvh', padding: '14px 16px 40px' }}>
       <div style={{ maxWidth: 620, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <IconButton label="Quay lại tiệm" onClick={() => goto('hub')}>←</IconButton>
+          <IconButton label="Về màn chọn bé" onClick={() => goto('home')}>←</IconButton>
           <h1 style={{ fontSize: 24 }}>Khu phụ huynh</h1>
         </div>
 
         {/* Chọn/đổi hồ sơ bé (nhiều con) — báo cáo & nhiệm vụ bên dưới theo bé đang chọn */}
         <ChildSwitcher />
+
+        {/* Mã PIN riêng của bé đang chọn (tùy chọn) */}
+        <ChildPinPanel />
 
         {/* Báo cáo */}
         <Panel style={{ marginBottom: 16 }}>
@@ -341,7 +345,7 @@ export function Parent() {
           setUnlocked(true);
         }}
         onForgot={() => setParentPin(null)}
-        onBack={() => goto('hub')}
+        onBack={() => goto('home')}
       />
     );
   }

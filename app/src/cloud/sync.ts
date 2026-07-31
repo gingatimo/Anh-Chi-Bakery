@@ -15,6 +15,7 @@ function snapshot() {
     shopName: s.shopName,
     avatar: s.avatar,
     lop: s.lop,
+    childPin: s.childPin,
     day: s.day,
     xu: s.xu,
     levels: s.levels,
@@ -101,7 +102,7 @@ export async function listChildren(parentId: string): Promise<ChildRow[]> {
 /** Nạp hồ sơ một bé (đã chọn) vào máy này để chơi. */
 export function activateChild(row: ChildRow) {
   const snap = (row.save_state ?? {}) as Partial<S>;
-  useGame.setState({ ...snap, childId: row.id, started: true, addingChild: false, phase: 'hub' });
+  useGame.setState({ ...snap, childId: row.id, started: true, addingChild: false, childUnlocked: false, phase: 'hub' });
 }
 
 /** Xoá hẳn hồ sơ một bé khỏi DB (dùng khi "chơi lại từ đầu"). */

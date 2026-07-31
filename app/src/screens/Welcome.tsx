@@ -1,10 +1,9 @@
-/** Onboarding — tách rõ vai trò:
- *   BỐ MẸ: đăng nhập/tạo tài khoản → đặt PIN + cấu hình thời gian (lần đầu) → chọn lớp cho bé.
- *   CON: đặt tên tiệm + chọn màu tạp dề → chơi.
- * LẦN SAU: `started` đã lưu → Game vào thẳng Hub, không hỏi đăng nhập.
- * Nhiều con: sau khi bố mẹ đăng nhập → màn CHỌN HỒ SƠ BÉ (thêm bé mới nếu cần).
- */
-import { useEffect, useState, type ReactNode } from 'react';
+/** Onboarding pieces — dùng bởi Game router + Home:
+ *   ParentAuth: bố mẹ đăng nhập/tạo tài khoản (bắt buộc lần đầu khi có Supabase).
+ *   CreateChild: tạo hồ sơ một bé — BƯỚC 1 bố mẹ (PIN + thời gian nếu lần đầu + lớp)
+ *                → BƯỚC 2 con (tên tiệm + tạp dề). Xong → vào chơi.
+ * Danh sách/chọn bé giờ ở màn Home (screens/Home.tsx). */
+import { useState, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import type { Session } from '@supabase/supabase-js';
 import { useGame } from '../game/store';
@@ -12,9 +11,8 @@ import { SESSION_LABEL, type SessionPreset } from '../game/days';
 import { MapChar } from '../ui/MapChar';
 import { BigButton, SpeechBubble } from '../ui/kit';
 import { sfx } from '../ui/sfx';
-import { supabaseConfigured } from '../cloud/supabase';
-import { useSession, signUp, signIn } from '../cloud/auth';
-import { pushSnapshot, listChildren, activateChild, type ChildRow } from '../cloud/sync';
+import { signUp, signIn } from '../cloud/auth';
+import { pushSnapshot } from '../cloud/sync';
 
 const APRONS = ['#EBA7A0', '#A9C6A0', '#9CC7D6', '#F3A46E', '#F2CE85'];
 const SESSIONS: SessionPreset[] = ['ngan', 'vua', 'dai'];
@@ -71,7 +69,7 @@ function Opt<T extends string | number>({ value, options, labelOf, descOf, onPic
 const rowLabel: React.CSSProperties = { textAlign: 'left', fontWeight: 700, marginBottom: 6, fontFamily: 'var(--font-display)', fontSize: 15 };
 
 /** BỐ MẸ đăng nhập / tạo tài khoản (bắt buộc lần đầu khi có Supabase). */
-function ParentAuth() {
+export function ParentAuth() {
   const [mode, setMode] = useState<'register' | 'login'>('register');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
@@ -120,7 +118,7 @@ function ParentAuth() {
 }
 
 /** Tạo hồ sơ một bé: BƯỚC 1 bố mẹ (PIN + thời gian nếu lần đầu + lớp) → BƯỚC 2 con (tên + tạp dề). */
-function CreateChild({ session }: { session: Session | null }) {
+export function CreateChild({ session }: { session: Session | null }) {
   const startGame = useGame((s) => s.startGame);
   const setParentPin = useGame((s) => s.setParentPin);
   const setSession = useGame((s) => s.setSession);
@@ -217,58 +215,4 @@ function CreateChild({ session }: { session: Session | null }) {
       <BigButton wide tone="peach" onClick={begin}>Cho bé chơi thôi! 🎀</BigButton>
     </Shell>
   );
-}
-
-/** Chọn hồ sơ bé (nhiều con dùng chung 1 tài khoản bố mẹ). */
-function ChildPicker({ rows, err }: { rows: ChildRow[]; err: string | null }) {
-  const beginAddChild = useGame((s) => s.beginAddChild);
-  return (
-    <Shell>
-      <MapChar mood="greet" width={120} />
-      <div style={{ display: 'flex', justifyContent: 'center', margin: '2px 0 16px' }}>
-        <SpeechBubble tail="down">Bé nào chơi hôm nay nào?</SpeechBubble>
-      </div>
-      <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
-        {rows.map((c) => (
-          <motion.button key={c.id} whileHover={{ y: -2, scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => { sfx.bell(); activateChild(c); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 16, background: 'var(--bg-sunk)', boxShadow: 'var(--shadow-soft)' }}>
-            <span style={{ fontSize: 26 }}>🧁</span>
-            <span style={{ flex: 1, textAlign: 'left' }}>
-              <span style={{ display: 'block', fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text)' }}>{c.ten_tiem || 'Tiệm của bé'}</span>
-              <span style={{ color: 'var(--text-soft)', fontSize: 14 }}>Lớp {c.lop ?? 3}</span>
-            </span>
-            <span style={{ color: 'var(--peach)', fontWeight: 800 }}>Chơi →</span>
-          </motion.button>
-        ))}
-      </div>
-      <BigButton wide tone="sky" onClick={() => { sfx.tap(); beginAddChild(); }}>➕ Thêm bé mới</BigButton>
-      {err && <p style={{ color: 'var(--rose-dark)', fontSize: 13, marginTop: 8 }}>{err}</p>}
-    </Shell>
-  );
-}
-
-/** Sau khi bố mẹ đăng nhập: tải danh sách con → chọn bé, hoặc tạo hồ sơ nếu chưa có. */
-function ChildGate({ session }: { session: Session }) {
-  const addingChild = useGame((s) => s.addingChild);
-  const [rows, setRows] = useState<ChildRow[] | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    listChildren(session.user.id)
-      .then((r) => alive && setRows(r))
-      .catch((e) => { if (alive) { setRows([]); setErr(e instanceof Error ? e.message : 'Lỗi tải hồ sơ các bé.'); } });
-    return () => { alive = false; };
-  }, [session.user.id]);
-
-  if (rows === null) return <Shell><p style={{ color: 'var(--text-soft)' }}>Đang tải hồ sơ các bé…</p></Shell>;
-  if (addingChild || rows.length === 0) return <CreateChild session={session} />;
-  return <ChildPicker rows={rows} err={err} />;
-}
-
-export function Welcome() {
-  const { session, ready } = useSession();
-  if (supabaseConfigured && !ready) return <Shell><p style={{ color: 'var(--text-soft)' }}>Đang tải…</p></Shell>;
-  if (supabaseConfigured && !session) return <ParentAuth />;
-  if (session) return <ChildGate session={session} />;
-  return <CreateChild session={null} />; // không cấu hình Supabase → local-first
 }

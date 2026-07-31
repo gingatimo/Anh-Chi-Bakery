@@ -2,9 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { PaperDefs } from './assets/svg/paper';
 import { useGame } from './game/store';
 import { setSound } from './ui/sfx';
-import { useSession } from './cloud/auth';
 import { initAutosave } from './cloud/autosave';
-import { pullChild } from './cloud/sync';
 import { Gallery } from './dev/Gallery';
 import { SelfCheck } from './dev/SelfCheck';
 import { Playtest } from './dev/Playtest';
@@ -25,7 +23,6 @@ export default function App() {
   const hash = useHash();
   const theme = useGame((s) => s.settings.theme);
   const sound = useGame((s) => s.settings.sound);
-  const { session } = useSession();
 
   // áp theme + âm thanh toàn app
   useEffect(() => {
@@ -35,16 +32,11 @@ export default function App() {
     setSound(sound);
   }, [sound]);
 
-  // DB là nguồn chân lý: bật tự-lưu-lên-DB (một lần) + khi có phiên đăng nhập thì
-  // tải BẢN MỚI NHẤT của bé đang chơi từ DB, ghi đè cache local (đồng bộ đa thiết bị).
+  // DB là nguồn chân lý: bật tự-lưu-lên-DB (một lần). Việc nạp bé từ DB nay do màn
+  // Home làm khi bé chọn card (pullChild) — không auto-vào-bé lúc mở app nữa.
   useEffect(() => {
     initAutosave();
   }, []);
-  useEffect(() => {
-    if (!session) return;
-    const cid = useGame.getState().childId;
-    if (cid) void pullChild(cid, session.user.id);
-  }, [session]);
 
   return (
     <>
