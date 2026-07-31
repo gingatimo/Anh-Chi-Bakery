@@ -177,6 +177,33 @@ export function runSelfCheck(): CheckResult[] {
     add('D1: tổng–hiệu đúng (nhiều = (tổng+hiệu)/2)', ok, why);
   }
 
+  // E1 — chu vi: = (dài + rộng) × 2; choices chứa đáp án
+  {
+    let ok = true,
+      why = '';
+    for (let i = 0; i < N; i++) {
+      const q = generate('E1', 1 + (i % 5));
+      const a = q.context!.rows!,
+        b = q.context!.per!;
+      if (q.answer !== 2 * (a + b)) { ok = false; why = `E1 ${q.answer}≠2×(${a}+${b})`; break; }
+      if (!q.choices!.includes(q.answer)) { ok = false; why = 'E1 choices thiếu đáp án'; break; }
+    }
+    add('E1: chu vi đúng ((dài+rộng)×2)', ok, why);
+  }
+
+  // E2 — góc: = 360 / số miếng (nguyên); choices chứa đáp án
+  {
+    let ok = true,
+      why = '';
+    for (let i = 0; i < N; i++) {
+      const q = generate('E2', 1 + (i % 5));
+      const n = q.context!.groups!;
+      if (q.answer !== 360 / n || !Number.isInteger(q.answer)) { ok = false; why = `E2 ${q.answer}≠360/${n}`; break; }
+      if (!q.choices!.includes(q.answer)) { ok = false; why = 'E2 choices thiếu đáp án'; break; }
+    }
+    add('E2: góc mỗi miếng đúng (360 : số miếng)', ok, why);
+  }
+
   // Scheduler — không lặp prompt trong cửa sổ 20
   {
     const sch = new QuestionScheduler();

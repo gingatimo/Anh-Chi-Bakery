@@ -9,10 +9,10 @@
 import { formatVND, makeChange, pick, shuffle, smallestNoteAbove, NOTES } from './money';
 import type { NoteValue } from './money';
 
-export type QMode = 'choose' | 'keypad' | 'money-drag' | 'tray-drag' | 'divide' | 'measure' | 'quiz';
-// A = tiền tệ; B = nhân/chia; C = đo lường; D = toán đố (GDPT 2018 lớp 3–4).
-// B3 chia trong bảng, B5 chia có dư; C1 cân/đong; D1 tổng–hiệu (tìm 2 số biết tổng & hiệu).
-export type SkillId = 'A1' | 'A4' | 'A5' | 'A6' | 'B1' | 'B2' | 'B3' | 'B5' | 'C1' | 'D1';
+export type QMode = 'choose' | 'keypad' | 'money-drag' | 'tray-drag' | 'divide' | 'measure' | 'quiz' | 'geo';
+// A = tiền tệ; B = nhân/chia; C = đo lường; D = toán đố; E = hình học (GDPT 2018 lớp 3–4).
+// C1 cân/đong; D1 tổng–hiệu; E1 chu vi (ruy-băng quanh bánh, lớp 3); E2 góc (cắt bánh, lớp 4).
+export type SkillId = 'A1' | 'A4' | 'A5' | 'A6' | 'B1' | 'B2' | 'B3' | 'B5' | 'C1' | 'D1' | 'E1' | 'E2';
 
 export interface Question {
   skill: SkillId;
@@ -420,6 +420,54 @@ function genD1(level: number): Question {
   };
 }
 
+// ─────────────────────────────────────────────────────────────
+// E1 — Chu vi (geo): viền ruy-băng quanh mặt bánh chữ nhật (lớp 3)
+// ─────────────────────────────────────────────────────────────
+function genE1(level: number): Question {
+  const a = 3 + Math.floor(Math.random() * (level <= 2 ? 6 : 14)); // dài
+  const b = 2 + Math.floor(Math.random() * Math.min(a - 1, level <= 2 ? 4 : 9)); // rộng < dài
+  const answer = 2 * (a + b);
+  const pool = shuffle(
+    [a + b, a * b, answer + 2, Math.max(2, answer - 2)].filter((v, i, ar) => ar.indexOf(v) === i && v !== answer && v > 0)
+  );
+  const choices = shuffle([answer, ...pool.slice(0, 3)]);
+  return {
+    skill: 'E1',
+    level,
+    mode: 'geo',
+    key: `E1:${a}x${b}`,
+    prompt: `Mặt bánh chữ nhật dài ${a}dm, rộng ${b}dm. Viền ruy-băng quanh cần bao nhiêu dm?`,
+    answer,
+    choices,
+    context: { rows: a, per: b, unit: 'dm' }, // rows = dài, per = rộng
+    hints: ['Chu vi = (dài + rộng) × 2.', `(${a} + ${b}) × 2 = ?`, `Cần ${answer}dm ruy-băng.`],
+  };
+}
+
+// E2 — Góc (geo): cắt bánh tròn thành n miếng đều, mỗi miếng bao nhiêu độ (lớp 4)
+function genE2(level: number): Question {
+  const options = level <= 2 ? [2, 3, 4, 6] : [2, 3, 4, 5, 6, 8, 9, 10, 12];
+  const n = pick(options);
+  const answer = 360 / n;
+  const pool = shuffle(
+    [n, answer + 10, Math.max(10, answer - 10), answer * 2].filter(
+      (v, i, ar) => ar.indexOf(v) === i && v !== answer && Number.isInteger(v) && v > 0
+    )
+  );
+  const choices = shuffle([answer, ...pool.slice(0, 3)]);
+  return {
+    skill: 'E2',
+    level,
+    mode: 'geo',
+    key: `E2:${n}`,
+    prompt: `Cắt bánh tròn thành ${n} miếng đều nhau. Mỗi miếng có góc bao nhiêu độ?`,
+    answer,
+    choices,
+    context: { groups: n, unit: '°' }, // groups = số miếng
+    hints: ['Cả vòng tròn là 360°.', `360 : ${n} = ?`, `Mỗi miếng ${answer}°.`],
+  };
+}
+
 const GEN: Record<SkillId, (level: number, lop: 3 | 4) => Question> = {
   A1: (l) => genA1(l),
   A4: (l, lop) => genA4(l, lop),
@@ -431,6 +479,8 @@ const GEN: Record<SkillId, (level: number, lop: 3 | 4) => Question> = {
   B5: (l) => genB5(l),
   C1: (l) => genC1(l),
   D1: (l) => genD1(l),
+  E1: (l) => genE1(l),
+  E2: (l) => genE2(l),
 };
 
 export function generate(skill: SkillId, level: number, lop: 3 | 4 = 3): Question {
