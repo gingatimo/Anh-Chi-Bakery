@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { useGame } from '../game/store';
 import { MapChar } from '../ui/MapChar';
 import { BigButton, IconButton, SpeechBubble } from '../ui/kit';
+import { PinPad } from '../ui/PinPad';
 import { sfx } from '../ui/sfx';
 import { useSession } from '../cloud/auth';
 import { listChildren, pullChild, type ChildRow } from '../cloud/sync';
@@ -18,8 +19,11 @@ export function Home() {
   const goto = useGame((s) => s.goto);
   const beginAddChild = useGame((s) => s.beginAddChild);
   const addingChild = useGame((s) => s.addingChild);
+  const parentPin = useGame((s) => s.settings.parentPin);
   const [rows, setRows] = useState<ChildRow[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [askPin, setAskPin] = useState(false); // hỏi PIN phụ huynh trước khi thêm bé
+  const [pinShake, setPinShake] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -45,6 +49,24 @@ export function Home() {
       goto('hub'); // Game router → ChildLock nếu có PIN, else Hub
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Thêm bé PHẢI qua PIN phụ huynh (kẻo trẻ tự tạo hồ sơ ở Home).
+  const tryAdd = () => {
+    sfx.tap();
+    if (!parentPin) { beginAddChild(); return; } // chưa đặt PIN (hiếm) → cho luôn
+    setAskPin(true);
+  };
+  const onPin = (code: string) => {
+    if (code === parentPin) {
+      sfx.pop();
+      setAskPin(false);
+      beginAddChild();
+    } else {
+      sfx.soft();
+      setPinShake(true);
+      setTimeout(() => setPinShake(false), 500);
     }
   };
 
@@ -101,7 +123,7 @@ export function Home() {
         </div>
 
         <div style={{ marginTop: 16 }}>
-          <BigButton wide tone="sky" onClick={() => { sfx.tap(); beginAddChild(); }}>
+          <BigButton wide tone="sky" onClick={tryAdd}>
             ➕ Thêm bé mới
           </BigButton>
         </div>
@@ -110,6 +132,28 @@ export function Home() {
           <MapChar mood="greet" width={150} />
         </div>
       </div>
+
+      {/* Cổng PIN phụ huynh trước khi thêm bé */}
+      {askPin && (
+        <div
+          onClick={() => setAskPin(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(74,59,50,0.45)', display: 'grid', placeItems: 'center', zIndex: 200, padding: 20 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: 'var(--bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lift)', padding: '24px 24px 28px', maxWidth: 340, width: '100%', textAlign: 'center' }}
+          >
+            <h2 style={{ fontSize: 20, marginBottom: 4 }}>Thêm bé mới</h2>
+            <p style={{ color: 'var(--text-soft)', fontSize: 14, marginBottom: 18 }}>Nhập mã PIN của bố mẹ để tiếp tục</p>
+            <div style={{ display: 'grid', placeItems: 'center' }}>
+              <PinPad onComplete={onPin} shake={pinShake} />
+            </div>
+            <button onClick={() => { sfx.tap(); setAskPin(false); }} style={{ marginTop: 16, color: 'var(--text-soft)', fontWeight: 600, textDecoration: 'underline' }}>
+              Huỷ
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

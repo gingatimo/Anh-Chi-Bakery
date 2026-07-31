@@ -20,6 +20,7 @@ import {
   type CatalogSticker,
 } from '../assets/svg/stickerGen';
 import { IconButton, BigButton, Panel } from '../ui/kit';
+import { OwnedRing } from '../ui/OwnedRing';
 import { sfx } from '../ui/sfx';
 
 const clamp = (v: number) => Math.max(2, Math.min(92, v));
@@ -471,9 +472,14 @@ function CollectionTab({ reduce }: { reduce: boolean }) {
           justifyItems: 'center',
         }}
       >
-        {pageItems.map((s) => (
-          <CatalogStickerView key={s.id} s={s} width={92} ghost={!collectedSet.has(s.id)} />
-        ))}
+        {pageItems.map((s) => {
+          const owned = collectedSet.has(s.id);
+          return (
+            <OwnedRing key={s.id} on={owned}>
+              <CatalogStickerView s={s} width={92} ghost={!owned} />
+            </OwnedRing>
+          );
+        })}
       </motion.div>
 
       {/* Điều hướng trang */}

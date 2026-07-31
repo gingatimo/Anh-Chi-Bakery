@@ -150,7 +150,7 @@ export function Decorate() {
         style={{
           position: 'relative',
           width: '100%',
-          aspectRatio: '1000 / 620', // đúng tỉ lệ cảnh → KHÔNG bị cắt, phòng to hết cỡ
+          aspectRatio: '1000 / 640', // đúng tỉ lệ cảnh → KHÔNG bị cắt, phòng to hết cỡ
           maxHeight: '64vh',
           overflow: 'hidden',
           borderRadius: 'var(--radius-lg)',

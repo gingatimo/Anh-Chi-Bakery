@@ -229,16 +229,43 @@ export function ShopScene({ evening = false, variant = 0 }: { evening?: boolean;
   const wall = evening ? '#2E2622' : v.wall;
   const wallLow = evening ? '#271F1B' : v.wallLow;
   const floor = evening ? '#3A302A' : v.floor;
+  const line = v.floorLine;
   return (
-    <svg viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden style={{ display: 'block' }}>
+    <svg viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden style={{ display: 'block' }}>
+      <defs>
+        <linearGradient id="ac-scene-lshade" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor={INK} stopOpacity={0.12} />
+          <stop offset="1" stopColor={INK} stopOpacity={0} />
+        </linearGradient>
+        <linearGradient id="ac-scene-rshade" x1="1" y1="0" x2="0" y2="0">
+          <stop offset="0" stopColor={INK} stopOpacity={0.12} />
+          <stop offset="1" stopColor={INK} stopOpacity={0} />
+        </linearGradient>
+        <radialGradient id="ac-scene-floorlight" cx="0.5" cy="0.15" r="0.75">
+          <stop offset="0" stopColor={evening ? '#F6EAD3' : PALETTE.butter} stopOpacity={evening ? 0.1 : 0.16} />
+          <stop offset="1" stopColor={PALETTE.butter} stopOpacity={0} />
+        </radialGradient>
+      </defs>
+
+      {/* tường + dải tường thấp */}
       <rect x={0} y={0} width={1000} height={452} fill={wall} />
       <rect x={0} y={330} width={1000} height={122} fill={wallLow} opacity={0.6} />
-      <rect x={0} y={326} width={1000} height={6} fill={v.floorLine} opacity={0.5} />
-      <rect x={0} y={452} width={1000} height={168} fill={floor} />
-      {[120, 340, 560, 780].map((x) => (
-        <path key={x} d={`M ${x} 452 L ${x - 40} 620`} stroke={v.floorLine} strokeWidth={3} opacity={0.4} />
+      {/* bóng hai bên → tường lùi ra xa, cảm giác PHÒNG rộng có chiều sâu */}
+      <rect x={0} y={0} width={260} height={452} fill="url(#ac-scene-lshade)" />
+      <rect x={740} y={0} width={260} height={452} fill="url(#ac-scene-rshade)" />
+
+      {/* gờ chân tường (baseboard) */}
+      <rect x={0} y={444} width={1000} height={12} fill={wallLow} />
+      <rect x={0} y={452} width={1000} height={6} fill={line} opacity={0.5} />
+
+      {/* sàn — sâu hơn (viewBox cao hơn) + ván sàn HỘI TỤ về điểm xa */}
+      <rect x={0} y={452} width={1000} height={188} fill={floor} />
+      {[-80, 120, 320, 500, 680, 880, 1080].map((x) => (
+        <path key={x} d={`M ${x} 640 L ${500 + (x - 500) * 0.1} 456`} stroke={line} strokeWidth={3} opacity={0.3} />
       ))}
-      <rect x={0} y={452} width={1000} height={8} fill={v.floorLine} opacity={0.5} />
+      {/* vệt sáng giữa sàn → thoáng, mở */}
+      <ellipse cx={500} cy={588} rx={440} ry={96} fill="url(#ac-scene-floorlight)" />
+
       <Decor v={v} evening={evening} />
     </svg>
   );

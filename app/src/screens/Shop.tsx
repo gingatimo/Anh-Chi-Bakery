@@ -9,13 +9,21 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useGame } from '../game/store';
 import { FURNITURE, Furniture } from '../assets/svg/Furniture';
 import { BigButton, Coin, IconButton, Panel, XuBadge } from '../ui/kit';
+import { OwnedRing } from '../ui/OwnedRing';
 import { sfx } from '../ui/sfx';
 
 export function Shop() {
   const goto = useGame((s) => s.goto);
   const xu = useGame((s) => s.xu);
+  const inventory = useGame((s) => s.inventory);
+  const placed = useGame((s) => s.placed);
   const buyFurniture = useGame((s) => s.buyFurniture);
   const reduce = !!useReducedMotion();
+
+  // số lượng mỗi món bé đang sở hữu (kho + đã đặt trong phòng)
+  const ownedCount = new Map<string, number>();
+  for (const id of inventory) ownedCount.set(id, (ownedCount.get(id) ?? 0) + 1);
+  for (const p of placed) ownedCount.set(p.id, (ownedCount.get(p.id) ?? 0) + 1);
 
   const [toast, setToast] = useState<number | null>(null);
   const [denied, setDenied] = useState<string | null>(null);
@@ -92,6 +100,7 @@ export function Shop() {
       >
         {FURNITURE.map((f) => {
           const afford = xu >= f.price;
+          const owned = ownedCount.get(f.id) ?? 0;
           return (
             <motion.div
               key={f.id}
@@ -99,10 +108,15 @@ export function Shop() {
               transition={{ duration: 0.42 }}
             >
               <Panel style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                <Furniture def={f} width={110} />
+                <OwnedRing on={owned > 0}>
+                  <Furniture def={f} width={110} />
+                </OwnedRing>
                 <div style={{ fontWeight: 700, fontSize: 18, fontFamily: 'var(--font-display)', color: 'var(--text)' }}>
                   {f.label}
                 </div>
+                {owned > 0 && (
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--sage-dark)' }}>✓ Đã có{owned > 1 ? ` (${owned})` : ''}</div>
+                )}
                 <div
                   className="tnum"
                   style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 18, color: 'var(--text)' }}
