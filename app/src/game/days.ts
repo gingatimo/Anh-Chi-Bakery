@@ -56,7 +56,9 @@ function orderCakesFor(n: number): CakeKind[] {
 function bakeSkillForGrade(lop: 3 | 4): SkillId {
   // Khâu chuẩn bị: làm bánh (nhân), chia hộp (chia), HOẶC cân/đong nguyên liệu (đo lường).
   const pool: SkillId[] =
-    lop >= 4 ? ['B2', 'B2', 'B3', 'B5', 'C1', 'D1', 'E2'] : ['B1', 'B2', 'B3', 'C1', 'E1'];
+    lop >= 4
+      ? ['B2', 'B2', 'B3', 'B5', 'C1', 'D1', 'E2', 'F2']
+      : ['B1', 'B2', 'B3', 'C1', 'E1', 'F1'];
   return pick(pool);
 }
 
@@ -70,6 +72,8 @@ const prepLabel = (s: SkillId) =>
     ? 'Viền bánh'
     : s === 'E2'
     ? 'Cắt bánh'
+    : s === 'F1' || s === 'F2'
+    ? 'Chia phần bánh'
     : isDivide(s)
     ? 'Chia bánh vào hộp'
     : 'Làm bánh cho khách';
@@ -198,4 +202,6 @@ export const SKILL_LABEL: Record<SkillId, string> = {
   D1: 'Toán đố tổng–hiệu',
   E1: 'Chu vi (viền bánh)',
   E2: 'Góc (cắt bánh)',
+  F1: 'Một phần mấy',
+  F2: 'Phân số',
 };

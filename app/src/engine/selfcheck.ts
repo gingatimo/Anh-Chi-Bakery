@@ -204,6 +204,34 @@ export function runSelfCheck(): CheckResult[] {
     add('E2: góc mỗi miếng đúng (360 : số miếng)', ok, why);
   }
 
+  // F1 — một phần mấy: answer = 1/mẫu (mã hoá 1000+n); choices chứa đáp án
+  {
+    let ok = true,
+      why = '';
+    for (let i = 0; i < N; i++) {
+      const q = generate('F1', 1 + (i % 5));
+      const n = q.context!.groups!;
+      if (q.answer !== 1000 + n) { ok = false; why = `F1 ${q.answer}≠1/${n}`; break; }
+      if (!q.choices!.includes(q.answer)) { ok = false; why = 'F1 choices thiếu đáp án'; break; }
+    }
+    add('F1: một phần mấy đúng (1/mẫu)', ok, why);
+  }
+
+  // F2 — phân số k/n: answer = k*1000+n; tử 1..(mẫu-1); choices chứa đáp án
+  {
+    let ok = true,
+      why = '';
+    for (let i = 0; i < N; i++) {
+      const q = generate('F2', 1 + (i % 5));
+      const n = q.context!.groups!,
+        k = q.context!.per!;
+      if (q.answer !== k * 1000 + n) { ok = false; why = `F2 ${q.answer}≠${k}/${n}`; break; }
+      if (!(k >= 1 && k < n)) { ok = false; why = `F2 tử ${k} ngoài [1,${n})`; break; }
+      if (!q.choices!.includes(q.answer)) { ok = false; why = 'F2 choices thiếu đáp án'; break; }
+    }
+    add('F2: phân số k/n đúng (tử=tô, mẫu=tổng)', ok, why);
+  }
+
   // Scheduler — không lặp prompt trong cửa sổ 20
   {
     const sch = new QuestionScheduler();

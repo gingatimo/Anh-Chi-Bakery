@@ -8,6 +8,7 @@ import { DivideStep } from './steps/DivideStep';
 import { MeasureStep } from './steps/MeasureStep';
 import { QuizStep } from './steps/QuizStep';
 import { GeoStep } from './steps/GeoStep';
+import { FractionStep } from './steps/FractionStep';
 import { Register } from './steps/Register';
 import { ChangeTray } from './steps/ChangeTray';
 
@@ -57,6 +58,7 @@ export function Serve() {
       {step.q.mode === 'measure' && <MeasureStep key={key} {...common} />}
       {step.q.mode === 'quiz' && <QuizStep key={key} {...common} />}
       {step.q.mode === 'geo' && <GeoStep key={key} {...common} />}
+      {step.q.mode === 'fraction' && <FractionStep key={key} {...common} />}
       {step.q.mode === 'keypad' && <Register key={key} {...common} />}
       {step.q.mode === 'money-drag' && <ChangeTray key={key} {...common} />}
     </div>

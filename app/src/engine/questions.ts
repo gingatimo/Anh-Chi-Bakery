@@ -9,10 +9,10 @@
 import { formatVND, makeChange, pick, shuffle, smallestNoteAbove, NOTES } from './money';
 import type { NoteValue } from './money';
 
-export type QMode = 'choose' | 'keypad' | 'money-drag' | 'tray-drag' | 'divide' | 'measure' | 'quiz' | 'geo';
-// A = tiền tệ; B = nhân/chia; C = đo lường; D = toán đố; E = hình học (GDPT 2018 lớp 3–4).
-// C1 cân/đong; D1 tổng–hiệu; E1 chu vi (ruy-băng quanh bánh, lớp 3); E2 góc (cắt bánh, lớp 4).
-export type SkillId = 'A1' | 'A4' | 'A5' | 'A6' | 'B1' | 'B2' | 'B3' | 'B5' | 'C1' | 'D1' | 'E1' | 'E2';
+export type QMode = 'choose' | 'keypad' | 'money-drag' | 'tray-drag' | 'divide' | 'measure' | 'quiz' | 'geo' | 'fraction';
+// A tiền; B nhân/chia; C đo lường; D toán đố; E hình học; F phân số (GDPT 2018 lớp 3–4).
+// F1 "một phần mấy" (lớp 3); F2 phân số k/n (lớp 4). Đáp án phân số mã hoá tử*1000+mẫu.
+export type SkillId = 'A1' | 'A4' | 'A5' | 'A6' | 'B1' | 'B2' | 'B3' | 'B5' | 'C1' | 'D1' | 'E1' | 'E2' | 'F1' | 'F2';
 
 export interface Question {
   skill: SkillId;
@@ -468,6 +468,61 @@ function genE2(level: number): Question {
   };
 }
 
+// ── Phân số: mã hoá tử/mẫu thành 1 số nguyên để dùng chung answer/choices ──
+export const encFrac = (t: number, m: number) => t * 1000 + m;
+export const decFrac = (v: number): [number, number] => [Math.floor(v / 1000), v % 1000];
+
+// F1 — "Một phần mấy": nhận biết 1/n từ bánh cắt n phần, tô 1 phần (lớp 3)
+function genF1(level: number): Question {
+  const n = 2 + Math.floor(Math.random() * (level <= 2 ? 4 : 7)); // mẫu 2..5 / 2..8
+  const answer = encFrac(1, n);
+  const opts = new Set<number>([answer]);
+  let g = 0;
+  while (opts.size < 5 && g < 30) {
+    opts.add(encFrac(1, 2 + Math.floor(Math.random() * 8)));
+    g++;
+  }
+  const distinct = [...opts].filter((v) => v !== answer).slice(0, 3);
+  const choices = shuffle([answer, ...distinct]);
+  return {
+    skill: 'F1',
+    level,
+    mode: 'fraction',
+    key: `F1:1/${n}`,
+    prompt: `Cắt bánh thành ${n} phần bằng nhau, tô 1 phần. Phần tô là phân số nào?`,
+    answer,
+    choices,
+    context: { groups: n, per: 1 },
+    hints: ['Cả bánh chia mấy phần thì mẫu số là số đó.', `1 phần trong ${n} phần = một phần ${n}.`, `Đó là 1/${n}.`],
+  };
+}
+
+// F2 — Phân số k/n: nhận biết k/n từ bánh cắt n phần, tô k phần (lớp 4)
+function genF2(level: number): Question {
+  const n = 3 + Math.floor(Math.random() * (level <= 2 ? 4 : 7)); // mẫu 3..6 / 3..9
+  const k = 1 + Math.floor(Math.random() * (n - 1)); // tử 1..n-1
+  const answer = encFrac(k, n);
+  const opts = new Set<number>([answer, encFrac(n, k)]); // đảo tử–mẫu (lỗi hay gặp)
+  let g = 0;
+  while (opts.size < 5 && g < 30) {
+    opts.add(encFrac(1 + Math.floor(Math.random() * (n - 1)), n));
+    g++;
+  }
+  const distinct = [...opts].filter((v) => v !== answer).slice(0, 3);
+  const choices = shuffle([answer, ...distinct]);
+  return {
+    skill: 'F2',
+    level,
+    mode: 'fraction',
+    key: `F2:${k}/${n}`,
+    prompt: `Bánh chia ${n} phần bằng nhau, tô ${k} phần. Phần tô là phân số nào?`,
+    answer,
+    choices,
+    context: { groups: n, per: k },
+    hints: ['Tử số = số phần TÔ; mẫu số = TỔNG số phần.', `${k} phần tô trong ${n} phần → ${k}/${n}.`, `Đó là ${k}/${n}.`],
+  };
+}
+
 const GEN: Record<SkillId, (level: number, lop: 3 | 4) => Question> = {
   A1: (l) => genA1(l),
   A4: (l, lop) => genA4(l, lop),
@@ -481,6 +536,8 @@ const GEN: Record<SkillId, (level: number, lop: 3 | 4) => Question> = {
   D1: (l) => genD1(l),
   E1: (l) => genE1(l),
   E2: (l) => genE2(l),
+  F1: (l) => genF1(l),
+  F2: (l) => genF2(l),
 };
 
 export function generate(skill: SkillId, level: number, lop: 3 | 4 = 3): Question {
