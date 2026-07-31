@@ -29,6 +29,14 @@ export function initAutosave() {
       }
     }, 1500);
   });
+
+  // Reload/đóng tab/ẩn app → đẩy NGAY thay đổi còn treo trong debounce, kẻo mất
+  // (vd vừa duyệt xu xong bấm F5): DB cũ sẽ ghi đè cache tốt ở lần pull sau.
+  const flushOnHide = () => {
+    if (document.visibilityState === 'hidden') void flushNow();
+  };
+  document.addEventListener('visibilitychange', flushOnHide);
+  window.addEventListener('pagehide', () => void flushNow());
 }
 
 /** Lưu NGAY lên DB (khi thoát về Home / đổi bé) — không chờ debounce. */

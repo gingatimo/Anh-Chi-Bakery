@@ -5,7 +5,7 @@
  * bản đầy đủ (schema chuẩn hoá + hợp nhất theo bảng) là việc của M2 (9.4, 9.5).
  */
 import { supabase } from './supabase';
-import { useGame } from '../game/store';
+import { useGame, resumePhase } from '../game/store';
 
 type S = ReturnType<typeof useGame.getState>;
 
@@ -27,6 +27,14 @@ function snapshot() {
     counters: s.counters,
     settings: s.settings,
     daily: s.daily,
+    // ngày đang chơi dở (DB là nguồn chân lý → đa thiết bị cũng resume đúng chỗ)
+    phase: s.phase,
+    plan: s.plan,
+    beatIndex: s.beatIndex,
+    stepIndex: s.stepIndex,
+    dayResult: s.dayResult,
+    recentA: s.recentA,
+    recentB: s.recentB,
   };
 }
 
@@ -111,8 +119,14 @@ export async function deleteChild(childId: string, parentId: string): Promise<vo
   await supabase.from('child_profiles').delete().eq('id', childId).eq('parent_id', parentId);
 }
 
-/** Tải BẢN MỚI NHẤT của hồ sơ bé đang chơi từ DB (DB là nguồn chân lý). */
-export async function pullChild(childId: string, parentId: string): Promise<boolean> {
+/** Tải BẢN MỚI NHẤT của hồ sơ bé đang chơi từ DB (DB là nguồn chân lý).
+ *  `resume`: bé VÀO CHƠI (từ Home) → khôi phục đúng màn đang dở + re-gate PIN.
+ *  Không resume (đổi tab trong Khu phụ huynh) → GIỮ NGUYÊN phase hiện tại. */
+export async function pullChild(
+  childId: string,
+  parentId: string,
+  opts?: { resume?: boolean }
+): Promise<boolean> {
   if (!supabase) return false;
   const { data, error } = await supabase
     .from('child_profiles')
@@ -122,6 +136,13 @@ export async function pullChild(childId: string, parentId: string): Promise<bool
     .maybeSingle();
   if (error || !data) return false;
   const snap = (data.save_state ?? {}) as Partial<S>;
-  useGame.setState({ ...snap, childId: data.id, started: true });
+  const patch: Partial<S> = { ...snap, childId: data.id, started: true };
+  if (opts?.resume) {
+    patch.phase = resumePhase(snap); // 'serve'/'lunch' nếu đang dở, else 'hub'
+    patch.childUnlocked = false; // vào lại phải qua PIN riêng của bé (nếu có)
+  } else {
+    delete patch.phase; // đừng để phase của bé kéo phụ huynh ra khỏi Khu phụ huynh
+  }
+  useGame.setState(patch);
   return true;
 }

@@ -1,15 +1,19 @@
 /**
  * store.ts — state machine "ngày bán hàng" + dữ liệu bền (Zustand + persist).
- * DB là NGUỒN CHÂN LÝ: autosave đẩy mọi thay đổi lên Supabase; localStorage chỉ
- * còn là cache tăng tốc (xem cloud/autosave.ts + cloud/sync.ts). Khi có phiên
- * đăng nhập, App tải bản mới nhất từ DB (pullChild) ghi đè cache.
- * KHÔNG persist `plan` vì Question chứa hàm diagnose (không serialize được).
+ * DB là NGUỒN CHÂN LÝ DUY NHẤT khi có Supabase: KHÔNG cache gameplay ra
+ * localStorage nữa (tránh cache cũ đè DB mới lúc reload/đa thiết bị). App tải bản
+ * mới nhất từ DB (pullChild) mỗi khi bé vào chơi. localStorage CHỈ dùng cho chế độ
+ * dev/không-Supabase để reload không mất trạng thái (xem `storage` bên dưới).
+ * Cả hai chế độ đều lưu ngày đang chơi dở (`plan`+vị trí) để resume đúng chỗ /
+ * không né được màn nghỉ. Hàm `diagnose` trong Question bị JSON bỏ đi khi lưu —
+ * an toàn: useAttempts đã guard `if (q.diagnose)`, resume chỉ mất chẩn đoán lỗi.
  */
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { buildDay, type DayPlan, type CustomerPlan, type Step, type Levels, type SessionPreset } from './days';
 import { STICKERS } from '../assets/svg/Sticker';
 import { furnitureById } from '../assets/svg/Furniture';
+import { supabaseConfigured } from '../cloud/supabase';
 
 export type Phase =
   | 'welcome'
@@ -160,6 +164,17 @@ let placedKey = 1;
 export function gameDay(): string {
   const d = new Date(Date.now() - 4 * 3600 * 1000);
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+/** Phase để KHÔI PHỤC khi mở lại một hồ sơ đang chơi dở: chỉ 'serve'/'lunch' (đang
+ *  phục vụ / nghỉ trưa) mới resume — cần plan hợp lệ + beat trong phạm vi. Ngày đã
+ *  xong (plan=null) hay các màn thưởng → về 'hub'. */
+export function resumePhase(snap: { plan?: DayPlan | null; phase?: Phase | string; beatIndex?: number }): Phase {
+  const { plan, phase, beatIndex = 0 } = snap;
+  if (plan && plan.beats && (phase === 'serve' || phase === 'lunch') && beatIndex >= 0 && beatIndex < plan.beats.length) {
+    return phase;
+  }
+  return 'hub';
 }
 
 const CATALOG_SIZE = 1000;
@@ -477,7 +492,14 @@ export const useGame = create<GameState>()(
     }),
     {
       name: 'anhchi-save',
-      // chỉ persist dữ liệu BỀN — không lưu plan (chứa hàm) hay trạng thái phiên
+      // Prod (có Supabase) = DB-only: storage no-op → KHÔNG đọc/ghi localStorage
+      // (khỏi cache cũ đè DB mới). Dev/không-Supabase → localStorage để còn resume.
+      storage: createJSONStorage(() =>
+        supabaseConfigured
+          ? { getItem: () => null, setItem: () => {}, removeItem: () => {} }
+          : localStorage
+      ),
+      // persist dữ liệu bền + ngày đang chơi dở (để resume). diagnose bị JSON bỏ (an toàn).
       partialize: (s) => ({
         started: s.started,
         shopName: s.shopName,
@@ -496,18 +518,31 @@ export const useGame = create<GameState>()(
         counters: s.counters,
         settings: s.settings,
         daily: s.daily,
+        // ngày đang chơi dở → reload resume đúng chỗ (hàm diagnose bị JSON bỏ, an toàn)
+        phase: s.phase,
+        plan: s.plan,
+        beatIndex: s.beatIndex,
+        stepIndex: s.stepIndex,
+        dayResult: s.dayResult,
+        recentA: s.recentA,
+        recentB: s.recentB,
       }),
       // gộp sâu settings để save cũ (thiếu key mới) vẫn có mặc định
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<GameState>;
         return { ...current, ...p, settings: { ...current.settings, ...(p.settings ?? {}) } };
       },
-      // khi khôi phục: về HOME (board chọn bé) — bé tự chọn hồ sơ để vào chơi.
-      // (Dev không Supabase: Game router map 'home' → 'hub' vì chỉ 1 bé cục bộ.)
+      // Khi khôi phục cache:
+      //  • Prod (có Supabase, đa con): về HOME (board chọn bé). Bé chọn hồ sơ →
+      //    pullChild tải bản DB mới nhất VÀ resume ngày đang dở (nguồn chân lý là DB).
+      //  • Dev (1 bé cục bộ, không DB): resume thẳng ngày đang dở nếu có, else hub.
       onRehydrateStorage: () => (state) => {
-        if (state && state.started) {
+        if (!state || !state.started) return;
+        if (supabaseConfigured) {
           state.phase = 'home';
           state.childUnlocked = false; // vào lại phải nhập PIN của bé nếu có
+        } else {
+          state.phase = resumePhase(state);
         }
       },
     }

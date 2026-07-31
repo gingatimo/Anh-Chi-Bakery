@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useGame, gameDay } from '../game/store';
 import { TASK_TEMPLATES, TASK_EMOJIS } from '../game/taskTemplates';
+import { flushNow } from '../cloud/autosave';
 import { Panel, BigButton } from '../ui/kit';
 import { sfx } from '../ui/sfx';
 
@@ -63,6 +64,7 @@ export function TaskManager() {
                 onClick={() => {
                   sfx.coin();
                   toggleTaskDone(t.id);
+                  void flushNow(); // đẩy credit lên DB ngay, không đợi debounce 1.5s
                 }}
                 style={{
                   padding: '9px 12px',
