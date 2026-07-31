@@ -114,6 +114,7 @@ interface GameState {
   beatIndex: number;
   stepIndex: number;
   activityKind: ActivityKind | null; // hoạt động thư giãn đang hiện (khi phase='activity')
+  restEndsAt: number | null; // mốc kết thúc nghỉ trưa (epoch ms) → reload không đếm lại
   recentA: boolean[];
   recentB: boolean[];
   dayResult: DayResult;
@@ -245,6 +246,7 @@ export const useGame = create<GameState>()(
       beatIndex: 0,
       stepIndex: 0,
       activityKind: null,
+      restEndsAt: null,
       recentA: [],
       recentB: [],
       dayResult: { served: 0, xu: 0, firstTry: 0, total: 0 },
@@ -375,7 +377,8 @@ export const useGame = create<GameState>()(
         }
         const nb = beats[nextBeat];
         if (nb.kind === 'lunch') {
-          set({ beatIndex: nextBeat + 1, stepIndex: 0, phase: 'lunch' });
+          // mốc hết nghỉ theo đồng hồ thật → reload/đổi máy không đếm lại từ đầu
+          set({ beatIndex: nextBeat + 1, stepIndex: 0, phase: 'lunch', restEndsAt: Date.now() + st.settings.restSeconds * 1000 });
         } else if (nb.kind === 'activity') {
           // hoạt động thư giãn: nhảy QUA beat này (như nghỉ trưa), nhớ loại để vẽ
           set({ beatIndex: nextBeat + 1, stepIndex: 0, phase: 'activity', activityKind: nb.act });
@@ -384,7 +387,7 @@ export const useGame = create<GameState>()(
         }
       },
 
-      continueFromLunch: () => set({ phase: 'serve' }),
+      continueFromLunch: () => set({ phase: 'serve', restEndsAt: null }),
       continueFromActivity: () => set({ phase: 'serve', activityKind: null }),
 
       goto: (p) => set({ phase: p }),
@@ -564,6 +567,7 @@ export const useGame = create<GameState>()(
         beatIndex: s.beatIndex,
         stepIndex: s.stepIndex,
         activityKind: s.activityKind,
+        restEndsAt: s.restEndsAt,
         dayResult: s.dayResult,
         recentA: s.recentA,
         recentB: s.recentB,

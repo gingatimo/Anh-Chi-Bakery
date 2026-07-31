@@ -158,11 +158,12 @@ function PickSpecial({ onContinue }: { onContinue: () => void }) {
 export function Lunch() {
   const continueFromLunch = useGame((s) => s.continueFromLunch);
   const restSeconds = useGame((s) => s.settings.restSeconds ?? EYE_REST_SEC);
+  const restEndsAt = useGame((s) => s.restEndsAt);
   const [sub, setSub] = useState<'rest' | 'special'>('rest');
   const [ready, setReady] = useState(false);
-  // Hết-giờ-nghỉ theo ĐỒNG HỒ THẬT: đặt máy xuống nghỉ vẫn trôi (không chỉ đếm lúc
-  // màn hình bật) → nghỉ dài (tới 10 phút) mới đúng nghĩa nghỉ ngơi.
-  const endsAtRef = useRef(Date.now() + restSeconds * 1000);
+  // Hết-giờ-nghỉ theo ĐỒNG HỒ THẬT, lấy MỐC đã lưu (store.restEndsAt) → reload/đổi máy
+  // giữa giờ nghỉ KHÔNG đếm lại từ đầu; đặt máy xuống nghỉ vẫn trôi. Fallback: tính mới.
+  const endsAtRef = useRef(restEndsAt ?? Date.now() + restSeconds * 1000);
   const firedRef = useRef(false);
 
   useEffect(() => {
