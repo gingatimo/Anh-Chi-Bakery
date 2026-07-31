@@ -1,11 +1,15 @@
 # Tiệm Bánh Anh Chi
 
-Game toán cho bé (lớp 3–4) theo [tài liệu thiết kế](../tiem-banh-anh-chi-thiet-ke-mvp.md).
+Game toán cho bé (lớp 3–4) theo [tài liệu thiết kế](tiem-banh-anh-chi-thiet-ke-mvp.md).
 Bé làm chủ tiệm bánh, dùng toán để phục vụ khách, **làm nhiệm vụ ba mẹ giao để nhận
 xu**, sưu tầm sticker và trang trí tiệm — **không đồng hồ đếm ngược, sai không mất gì**.
 
 Vite + React + TypeScript. Toàn bộ hình ảnh **sinh bằng code (SVG)**, không dùng ảnh
 diffusion. Cài được như app (**PWA**) trên điện thoại/máy tính bảng.
+
+**Bố cục repo:** [`app/`](app/) — ứng dụng (Vite/React) · [`supabase/`](supabase/) —
+migrations + config (auth, SMTP, template mail) · [`tiem-banh-anh-chi-thiet-ke-mvp.md`](tiem-banh-anh-chi-thiet-ke-mvp.md)
+— tài liệu thiết kế · [`.github/workflows/`](.github/workflows/) — CI/CD.
 
 ## Chạy
 
@@ -56,7 +60,7 @@ Toàn bộ bảng của app nằm trong **schema riêng `play`** (không phải 
 **dùng chung 1 database Supabase** với store thật mà không đụng tên bảng. `auth.users`
 dùng chung toàn project.
 
-- Client chỉ định `db.schema='play'` (một chỗ: `src/cloud/supabase.ts` → `DB_SCHEMA`).
+- Client chỉ định `db.schema='play'` (một chỗ: `app/src/cloud/supabase.ts` → `DB_SCHEMA`).
 - Quyền: chỉ `authenticated` chạm được schema `play`; `anon` không; RLS lọc từng dòng.
 - **Tách project riêng khi scale**: `pg_dump -n play` từ DB chung → restore sang
   project mới, đổi `VITE_SUPABASE_URL/ANON_KEY`. Mọi thứ gói trong 1 schema nên tách gọn.
@@ -64,7 +68,7 @@ dùng chung toàn project.
 ## Deploy — Cloudflare Pages (GitHub Action, theo tag)
 
 Deploy chạy khi **push một tag phiên bản `x.y.z`** (hoặc bấm tay *Run workflow*), qua
-[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml):
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
 
 ```bash
 git tag 0.2.0 && git push origin 0.2.0   # → build + deploy lên Cloudflare Pages
@@ -119,25 +123,29 @@ bánh → tính tiền → **thối tiền kéo-thả** → nghỉ trưa/nghỉ 
 
 ### Assets sinh bằng code (thiết kế 10.5)
 
-Toàn bộ hình là **SVG generator** từ `src/design/tokens.ts` (12 màu, 2 độ dày nét,
-bóng 135°, lưới 8px). Vân giấy phủ toàn cục bằng CSS. Xem `src/assets/svg/`.
+Toàn bộ hình là **SVG generator** từ `app/src/design/tokens.ts` (12 màu, 2 độ dày nét,
+bóng 135°, lưới 8px). Vân giấy phủ toàn cục bằng CSS. Xem `app/src/assets/svg/`.
 
 ## Cấu trúc
 
 ```
-src/
-  design/tokens.ts        # nguồn chân lý style (12 màu, nét, bóng, radii, font)
-  assets/svg/             # generator: Money, Cake, Map (Mập), Customer, Sticker, Furniture, Scene, stickerGen, furnitureGen, paper
-  engine/                 # money, questions (A1/A4/A5/A6/B1/B2), scheduler, selfcheck
-  cloud/                  # supabase (client), auth, sync (push/pull), autosave
-  game/                   # store (Zustand + persist=cache), days (day plan), taskTemplates
-  ui/                     # kit, MapChar, StepShell, useAttempts, sfx (Web Audio)
-  screens/                # Welcome, Hub, Serve(+steps/), Lunch, Summary, Reveal, StickerBook,
-                          #   Shop, Decorate, Tasks, TaskManager, Parent, AccountSection
-  dev/                    # Gallery, SelfCheck, Playtest (route kiểm tra)
-  Game.tsx                # phase router + cổng đăng nhập (DB-first)
-  App.tsx                 # theme/âm thanh + autosave + tải-từ-DB + dev routes + Game
-public/                   # manifest.webmanifest, sw.js, icon-*.png, favicon.svg, _redirects
+app/                        # ứng dụng Vite/React
+  src/
+    design/tokens.ts        # nguồn chân lý style (12 màu, nét, bóng, radii, font)
+    assets/svg/             # generator: Money, Cake, Map (Mập), Customer, Sticker, Furniture, Scene, stickerGen, furnitureGen, paper
+    engine/                 # money, questions (A1/A4/A5/A6/B1/B2), scheduler, selfcheck
+    cloud/                  # supabase (client), auth, sync (push/pull), autosave
+    game/                   # store (Zustand + persist=cache), days (day plan), taskTemplates
+    ui/                     # kit, MapChar, StepShell, useAttempts, sfx (Web Audio)
+    screens/                # Welcome, Hub, Serve(+steps/), Lunch, Summary, Reveal, StickerBook,
+                            #   Shop, Decorate, Tasks, TaskManager, Parent, AccountSection
+    dev/                    # Gallery, SelfCheck, Playtest (route kiểm tra)
+    Game.tsx                # phase router + cổng đăng nhập (DB-first)
+    App.tsx                 # theme/âm thanh + autosave + tải-từ-DB + dev routes + Game
+  public/                   # manifest.webmanifest, sw.js, icon-*.png, favicon.svg, _redirects
+supabase/                   # migrations/, config.toml, templates/confirmation.html
+.github/workflows/          # deploy.yml (Cloudflare Pages theo tag x.y.z)
+tiem-banh-anh-chi-thiet-ke-mvp.md   # tài liệu thiết kế
 ```
 
 ## Trạng thái & lộ trình

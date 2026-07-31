@@ -11,7 +11,7 @@
 
 > Tài liệu này là **tầm nhìn thiết kế** (giữ nguyên làm tham chiếu). Mục này ghi
 > **thực tế đã build** và các điểm **lệch có chủ đích**. Code ở `app/` (Vite + React
-> + TS); README: [`app/README.md`](app/README.md).
+> + TS); README: [`README.md`](README.md).
 
 **Đã làm (chạy được):** vòng lặp lõi §4 (khai trương → ngày bán → làm bánh/tính
 tiền/thối tiền kéo-thả → nghỉ mắt → tổng kết → bóc-dán sticker) · engine §3.3–3.5
