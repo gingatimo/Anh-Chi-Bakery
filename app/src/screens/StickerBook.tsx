@@ -180,12 +180,15 @@ function MemoriesTab({ reduce }: { reduce: boolean }) {
         <section style={{ marginTop: 28 }}>
           <h2 style={{ fontSize: 21, marginBottom: 2 }}>Chưa mở khoá</h2>
           <p style={{ color: 'var(--text-soft)', fontSize: 16, marginBottom: 14 }}>
-            Những ô trống đang chờ con quay lại.
+            Đây là các sticker con sắp có — cố lên nhé!
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
             {ghosts.map((d) => (
               <div key={d.id} style={{ width: 120, textAlign: 'center' }}>
-                <Sticker def={d} width={92} ghost />
+                {/* hiện hình sticker (mờ nhẹ) thay vì ô trống — cho con thấy mục tiêu */}
+                <div style={{ opacity: 0.55, filter: 'saturate(0.7)' }}>
+                  <Sticker def={d} width={92} />
+                </div>
                 <div style={{ fontSize: 14, color: 'var(--text-soft)', marginTop: 2, lineHeight: 1.3 }}>
                   {d.earn}
                 </div>
@@ -476,7 +479,10 @@ function CollectionTab({ reduce }: { reduce: boolean }) {
           const owned = collectedSet.has(s.id);
           return (
             <OwnedRing key={s.id} on={owned}>
-              <CatalogStickerView s={s} width={92} ghost={!owned} />
+              {/* LUÔN hiện hình sticker; chưa sở hữu thì mờ nhẹ, đã sở hữu thì sáng + vòng */}
+              <div style={{ opacity: owned ? 1 : 0.62, filter: owned ? 'none' : 'saturate(0.7)' }}>
+                <CatalogStickerView s={s} width={92} ghost={false} />
+              </div>
             </OwnedRing>
           );
         })}
