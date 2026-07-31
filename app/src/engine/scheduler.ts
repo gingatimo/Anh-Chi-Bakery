@@ -8,11 +8,11 @@ export class QuestionScheduler {
   private recent: string[] = [];
   private window = 20;
 
-  next(skill: SkillId, level: number): Question {
-    let q = generate(skill, level);
+  next(skill: SkillId, level: number, lop: 3 | 4 = 3): Question {
+    let q = generate(skill, level, lop);
     let tries = 0;
     while (this.recent.includes(q.key) && tries < 30) {
-      q = generate(skill, level);
+      q = generate(skill, level, lop);
       tries++;
     }
     this.recent.push(q.key);

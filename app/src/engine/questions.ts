@@ -9,8 +9,10 @@
 import { formatVND, makeChange, pick, shuffle, smallestNoteAbove, NOTES } from './money';
 import type { NoteValue } from './money';
 
-export type QMode = 'choose' | 'keypad' | 'money-drag' | 'tray-drag';
-export type SkillId = 'A1' | 'A4' | 'A5' | 'A6' | 'B1' | 'B2';
+export type QMode = 'choose' | 'keypad' | 'money-drag' | 'tray-drag' | 'divide';
+// Nhóm A = tiền tệ; nhóm B = nhân/chia. B3 chia trong bảng (lớp 3), B5 chia có dư
+// (lớp 3–4) — bổ sung cho khớp GDPT 2018 (chương trình CÓ phép chia; game còn thiếu).
+export type SkillId = 'A1' | 'A4' | 'A5' | 'A6' | 'B1' | 'B2' | 'B3' | 'B5';
 
 export interface Question {
   skill: SkillId;
@@ -31,6 +33,7 @@ export interface Question {
     given?: number;
     rows?: number;
     per?: number;
+    groups?: number; // B3: số hộp cần chia đều
   };
   hints: [string, string, string];
   /** chẩn đoán lỗi khi nhập số — trả về gợi ý nhắm đúng lỗi, hoặc null */
@@ -101,15 +104,14 @@ function genA1(level: number): Question {
 // ─────────────────────────────────────────────────────────────
 // A4 — Tổng đơn hàng 2–3 món (keypad)
 // ─────────────────────────────────────────────────────────────
-function genA4(level: number): Question {
-  const ranges: [number, number][] = [
-    [3, 15],
-    [5, 25],
-    [8, 40],
-    [10, 60],
-    [15, 90],
-  ];
-  const [lo, hi] = ranges[clampLevel(level) - 1];
+// Phạm vi theo LỚP (GDPT 2018): lớp 3 số ≤ 100.000 → tổng đơn ≤ ~100k;
+// lớp 4 số lớn hơn (bối cảnh tiền, tối đa mệnh giá 500k).
+const A4_RANGES: Record<3 | 4, [number, number][]> = {
+  3: [[3, 10], [5, 15], [8, 20], [10, 28], [12, 32]], // level5: 3×32 = 96k ≤ 100k
+  4: [[5, 20], [10, 35], [15, 55], [20, 75], [25, 95]],
+};
+function genA4(level: number, lop: 3 | 4 = 3): Question {
+  const [lo, hi] = A4_RANGES[lop][clampLevel(level) - 1];
   const count = level >= 3 ? 3 : 2;
   const itemsK = Array.from({ length: count }, () => lo + Math.floor(Math.random() * (hi - lo + 1)));
   const totalK = itemsK.reduce((s, x) => s + x, 0);
@@ -142,15 +144,13 @@ function genA4(level: number): Question {
 // ─────────────────────────────────────────────────────────────
 // A5 — Trừ để thối tiền (keypad) — tính số tiền thối
 // ─────────────────────────────────────────────────────────────
-function genA5(level: number): Question {
-  const ranges: [number, number][] = [
-    [5, 18],
-    [10, 40],
-    [20, 80],
-    [25, 90],
-    [30, 180],
-  ];
-  const [lo, hi] = ranges[clampLevel(level) - 1];
+// Lớp 3: tổng ≤ 88k → khách đưa ≤ 100k (mốc lớp 3). Lớp 4: lớn hơn.
+const A5_RANGES: Record<3 | 4, [number, number][]> = {
+  3: [[5, 18], [10, 30], [15, 45], [20, 60], [25, 88]],
+  4: [[10, 40], [20, 70], [30, 110], [40, 150], [50, 180]],
+};
+function genA5(level: number, lop: 3 | 4 = 3): Question {
+  const [lo, hi] = A5_RANGES[lop][clampLevel(level) - 1];
   const totalK = lo + Math.floor(Math.random() * (hi - lo + 1));
   const total = kToVnd(totalK);
   const given = smallestNoteAbove(total);
@@ -181,7 +181,7 @@ function genA5(level: number): Question {
 // ─────────────────────────────────────────────────────────────
 // A6 — Chọn tổ hợp tờ tiền để thối (money-drag, S07)
 // ─────────────────────────────────────────────────────────────
-function genA6(level: number, changeAmount?: number, givenNote?: number): Question {
+function genA6(level: number, lop: 3 | 4 = 3, changeAmount?: number, givenNote?: number): Question {
   // Nếu đến từ luồng phục vụ: thối đúng số change đã tính.
   // Nếu độc lập: sinh một số tiền thối hợp lý.
   let total: number, given: number, answer: number;
@@ -190,7 +190,7 @@ function genA6(level: number, changeAmount?: number, givenNote?: number): Questi
     given = givenNote ?? 0;
     total = givenNote ? givenNote - changeAmount : 0;
   } else {
-    const q = genA5(level);
+    const q = genA5(level, lop);
     total = q.context!.total!;
     given = q.context!.given!;
     answer = q.answer;
@@ -278,22 +278,85 @@ function genB2(level: number): Question {
   };
 }
 
-const GEN: Record<SkillId, (level: number) => Question> = {
-  A1: genA1,
-  A4: genA4,
-  A5: genA5,
-  A6: genA6,
-  B1: genB1,
-  B2: genB2,
+// ─────────────────────────────────────────────────────────────
+// B3 — Chia trong bảng (divide, S05): "chia đều N bánh vào K hộp" (lớp 3)
+// ─────────────────────────────────────────────────────────────
+function genB3(level: number): Question {
+  const hi = level <= 2 ? 5 : 9; // scaffold: level thấp số nhỏ, level cao tới bảng 9
+  const groups = 2 + Math.floor(Math.random() * (hi - 1)); // số hộp 2..hi
+  const quotient = 2 + Math.floor(Math.random() * (hi - 1)); // mỗi hộp 2..hi
+  const total = groups * quotient;
+  const answer = quotient;
+  const pool = shuffle(
+    [groups, quotient + 1, Math.max(1, quotient - 1)].filter((v, i, a) => a.indexOf(v) === i && v !== answer)
+  );
+  const choices = shuffle([answer, ...pool.slice(0, 3)]);
+  return {
+    skill: 'B3',
+    level,
+    mode: 'divide',
+    key: `B3:${total}/${groups}`,
+    prompt: `Chia đều ${total} bánh vào ${groups} hộp. Mỗi hộp mấy bánh?`,
+    answer,
+    choices,
+    context: { total, groups },
+    hints: [
+      'Chia đều nghĩa là mỗi hộp bằng nhau nhé.',
+      `${groups} hộp — mỗi hộp mấy cái thì vừa đủ ${total}?`,
+      `${total} : ${groups} = ${answer} bánh mỗi hộp.`,
+    ],
+  };
+}
+
+// B5 — Chia có dư (divide): "N bánh, hộp K cái, thừa mấy?" — số dư NHÌN THẤY (lớp 3–4)
+function genB5(level: number): Question {
+  const per = 3 + Math.floor(Math.random() * 5); // mỗi hộp 3..7 cái
+  const full = 2 + Math.floor(Math.random() * (level <= 2 ? 3 : 6)); // số hộp đầy
+  const rem = 1 + Math.floor(Math.random() * (per - 1)); // dư 1..per-1
+  const total = per * full + rem;
+  const answer = rem;
+  const cand = new Set<number>([answer]);
+  let guard = 0;
+  while (cand.size < Math.min(4, per) && guard < 30) {
+    cand.add(Math.floor(Math.random() * per)); // các số dư có thể: 0..per-1
+    guard++;
+  }
+  const choices = shuffle([...cand]);
+  return {
+    skill: 'B5',
+    level,
+    mode: 'divide',
+    key: `B5:${total}/${per}`,
+    prompt: `${total} bánh, mỗi hộp ${per} cái. Xếp xong còn thừa mấy bánh?`,
+    answer,
+    choices,
+    context: { total, per },
+    hints: [
+      `Xếp đầy từng hộp ${per} cái, đếm số bánh còn thừa.`,
+      `${full} hộp đầy hết ${per * full} bánh; còn lại là số thừa.`,
+      `${total} : ${per} = ${full} dư ${answer}.`,
+    ],
+  };
+}
+
+const GEN: Record<SkillId, (level: number, lop: 3 | 4) => Question> = {
+  A1: (l) => genA1(l),
+  A4: (l, lop) => genA4(l, lop),
+  A5: (l, lop) => genA5(l, lop),
+  A6: (l, lop) => genA6(l, lop),
+  B1: (l) => genB1(l),
+  B2: (l) => genB2(l),
+  B3: (l) => genB3(l),
+  B5: (l) => genB5(l),
 };
 
-export function generate(skill: SkillId, level: number): Question {
-  return GEN[skill](clampLevel(level));
+export function generate(skill: SkillId, level: number, lop: 3 | 4 = 3): Question {
+  return GEN[skill](clampLevel(level), lop);
 }
 
 /** Thối tiền dựa trên change đã tính (nối A5→A6 trong luồng phục vụ). */
 export function generateChangeDrag(level: number, changeAmount: number, givenNote?: number): Question {
-  return genA6(clampLevel(level), changeAmount, givenNote);
+  return genA6(clampLevel(level), 3, changeAmount, givenNote);
 }
 
 export { NOTES };

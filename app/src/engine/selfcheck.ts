@@ -106,6 +106,47 @@ export function runSelfCheck(): CheckResult[] {
     add('B1: tích đúng, choices hợp lệ', ok, why);
   }
 
+  // Lớp 3 — chặn phạm vi tiền ≤ 100.000 (đúng GDPT 2018 lớp 3)
+  {
+    let ok = true,
+      why = '';
+    for (let i = 0; i < N; i++) {
+      const a4 = generate('A4', 5, 3); // level cao nhất, lớp 3
+      if (a4.answer > 100000) { ok = false; why = `A4 lớp3 tổng ${a4.answer} > 100k`; break; }
+      const a5 = generate('A5', 5, 3);
+      if (a5.context!.given! > 100000) { ok = false; why = `A5 lớp3 khách đưa ${a5.context!.given} > 100k`; break; }
+    }
+    add('Lớp 3: tiền ≤ 100.000 (đúng phạm vi)', ok, why);
+  }
+
+  // B3 — chia đều: total = số hộp × mỗi hộp; choices chứa đáp án & phân biệt
+  {
+    let ok = true,
+      why = '';
+    for (let i = 0; i < N; i++) {
+      const q = generate('B3', 1 + (i % 5));
+      const { total, groups } = q.context!;
+      if (total !== groups! * q.answer) { ok = false; why = `B3 ${total}≠${groups}×${q.answer}`; break; }
+      if (!q.choices!.includes(q.answer)) { ok = false; why = 'B3 choices thiếu đáp án'; break; }
+      if (new Set(q.choices).size !== q.choices!.length) { ok = false; why = 'B3 choices trùng'; break; }
+    }
+    add('B3: chia đều đúng (N = số hộp × mỗi hộp)', ok, why);
+  }
+
+  // B5 — chia có dư: 0 < số thừa < mỗi hộp; số thừa = N mod hộp; choices hợp lệ
+  {
+    let ok = true,
+      why = '';
+    for (let i = 0; i < N; i++) {
+      const q = generate('B5', 1 + (i % 5));
+      const { total, per } = q.context!;
+      if (!(q.answer > 0 && q.answer < per!)) { ok = false; why = `B5 dư ${q.answer} ngoài (0,${per})`; break; }
+      if (total! % per! !== q.answer) { ok = false; why = `B5 ${total}%${per}≠${q.answer}`; break; }
+      if (!q.choices!.includes(q.answer)) { ok = false; why = 'B5 choices thiếu đáp án'; break; }
+    }
+    add('B5: chia có dư đúng (số thừa = N mod hộp)', ok, why);
+  }
+
   // Scheduler — không lặp prompt trong cửa sổ 20
   {
     const sch = new QuestionScheduler();

@@ -51,16 +51,20 @@ function orderCakesFor(n: number): CakeKind[] {
   return cakes;
 }
 
-/** Kỹ năng nhóm B theo lớp (thiết kế 3.6): lớp 3 nhân cơ bản, lớp 4 mở nhân 6–9. */
+/** Kỹ năng nhóm B theo lớp (GDPT 2018). Nhân bảng + CHIA (bảng chia là nội dung lớp
+ *  3). Lớp 4 thêm chia CÓ DƯ (B5) và nhân 6–9 nhiều hơn. */
 function bakeSkillForGrade(lop: 3 | 4): SkillId {
-  const pool: SkillId[] = lop >= 4 ? ['B1', 'B2', 'B2'] : ['B1', 'B1', 'B2'];
+  const pool: SkillId[] = lop >= 4 ? ['B2', 'B2', 'B3', 'B5'] : ['B1', 'B2', 'B3'];
   return pick(pool);
 }
 
-/** Một khách ngày thường: làm bánh (B) → tính tiền (A4) → thối tiền (A6 kéo). */
+const isDivide = (s: SkillId) => s === 'B3' || s === 'B5';
+
+/** Một khách ngày thường: làm bánh / chia hộp (B) → tính tiền (A4) → thối tiền (A6 kéo). */
 function normalCustomer(sched: QuestionScheduler, levels: Levels, lop: 3 | 4): CustomerPlan {
-  const bake = sched.next(bakeSkillForGrade(lop), levels.B);
-  const total = sched.next('A4', levels.A);
+  const bakeSkill = bakeSkillForGrade(lop);
+  const bake = sched.next(bakeSkill, levels.B, lop);
+  const total = sched.next('A4', levels.A, lop);
   const items = total.context!.items!;
   const cakes = orderCakesFor(items.length);
   const given = smallestNoteAbove(total.answer);
@@ -79,7 +83,7 @@ function normalCustomer(sched: QuestionScheduler, levels: Levels, lop: 3 | 4): C
     given,
     baseXu: 8 + Math.floor(Math.random() * 6),
     steps: [
-      { kind: 'bake', q: bake, label: 'Làm bánh cho khách' },
+      { kind: 'bake', q: bake, label: isDivide(bakeSkill) ? 'Chia bánh vào hộp' : 'Làm bánh cho khách' },
       { kind: 'total', q: total, label: 'Tính tiền cả đơn' },
       { kind: 'change', q: change, label: 'Thối tiền cho khách' },
     ],
@@ -174,4 +178,6 @@ export const SKILL_LABEL: Record<SkillId, string> = {
   A6: 'Đếm tiền thối',
   B1: 'Bảng nhân',
   B2: 'Bảng nhân 6–9',
+  B3: 'Chia đều (bảng chia)',
+  B5: 'Chia có dư',
 };
