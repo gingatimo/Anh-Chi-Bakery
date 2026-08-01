@@ -130,11 +130,12 @@ export function Hub() {
             </BigButton>
           </motion.div>
         )}
-        <BigButton tone="sky" onClick={() => goto('book')}>
+        {/* Hết giờ → chỉ NHIỆM VỤ mở (việc thật, không tính giờ chơi); còn lại đóng. */}
+        <BigButton tone="sky" disabled={closed} onClick={() => goto('book')}>
           📖 Sổ sticker {stickers.length > 0 && `(${stickers.length})`}
         </BigButton>
-        <BigButton tone="butter" onClick={() => goto('shop')}>🛍️ Cửa hàng</BigButton>
-        <BigButton tone="sage" onClick={() => goto('decorate')}>🪴 Trang trí</BigButton>
+        <BigButton tone="butter" disabled={closed} onClick={() => goto('shop')}>🛍️ Cửa hàng</BigButton>
+        <BigButton tone="sage" disabled={closed} onClick={() => goto('decorate')}>🪴 Trang trí</BigButton>
         <BigButton tone="rose" onClick={() => goto('tasks')}>
           🎯 Nhiệm vụ {tasksTodo > 0 && `(${tasksTodo})`}
         </BigButton>
