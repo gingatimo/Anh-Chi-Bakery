@@ -131,6 +131,7 @@ interface GameState {
   managing: boolean; // máy này đang QUẢN LÝ bé (mở từ Khu phụ huynh) chứ không phải chơi
   //  → chỉ ghi field quản lý (nhiệm vụ/cài đặt), GIỮ nguyên vị trí chơi của máy bé (Finding 1)
   playSeconds: number; // tổng giây chơi HÔM NAY theo SERVER (từ play.add_play_time; đo giờ chống chỉnh-giờ)
+  returnPhase: Phase | null; // vào Khu phụ huynh từ đâu → thoát ra quay lại đúng đó (khỏi phá ván bé)
 
   // ── actions ──
   startGame: (shopName: string, avatar: AvatarConfig, lop: 3 | 4) => void;
@@ -142,6 +143,8 @@ interface GameState {
   continueFromLunch: () => void;
   continueFromActivity: () => void; // rời hoạt động thư giãn → phục vụ tiếp
   goto: (p: Phase) => void;
+  openParent: () => void; // vào Khu phụ huynh, NHỚ màn hiện tại để quay lại
+  closeParent: () => void; // thoát Khu phụ huynh → về đúng màn đã nhớ (mặc định Home)
   placeSticker: (id: string, page: number, x: number, y: number, rotation: number) => void;
   moveSticker: (id: string, x: number, y: number, rotation: number) => void;
   buyFurniture: (id: string) => boolean;
@@ -271,6 +274,7 @@ export const useGame = create<GameState>()(
       notice: null,
       managing: false,
       playSeconds: 0,
+      returnPhase: null,
 
       // Tạo hồ sơ bé MỚI: reset sạch tiến trình + childId riêng (mỗi bé một hồ sơ).
       startGame: (shopName, avatar, lop) =>
@@ -415,6 +419,9 @@ export const useGame = create<GameState>()(
       continueFromActivity: () => set({ phase: 'serve', activityKind: null }),
 
       goto: (p) => set({ phase: p }),
+      // Vào Khu phụ huynh nhưng NHỚ màn đang ở (nếu chưa ở parent) → thoát ra quay lại đúng đó.
+      openParent: () => set((s) => (s.phase === 'parent' ? {} : { returnPhase: s.phase, phase: 'parent' })),
+      closeParent: () => set((s) => ({ phase: s.returnPhase ?? 'home', returnPhase: null })),
 
       placeSticker: (id, page, x, y, rotation) =>
         set((s) => ({

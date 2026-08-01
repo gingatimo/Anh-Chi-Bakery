@@ -23,6 +23,7 @@ export function Hub() {
   const daily = useGame((s) => s.daily);
   const openShop = useGame((s) => s.openShop);
   const goto = useGame((s) => s.goto);
+  const openParent = useGame((s) => s.openParent);
   const toggleSound = useGame((s) => s.toggleSound);
   const toggleTheme = useGame((s) => s.toggleTheme);
   const refreshDaily = useGame((s) => s.refreshDaily);
@@ -65,6 +66,7 @@ export function Hub() {
           <IconButton label="Đổi nền sáng/tối" onClick={toggleTheme}>
             {settings.theme === 'light' ? '🌙' : '☀️'}
           </IconButton>
+          <IconButton label="Khu phụ huynh" onClick={openParent}>👪</IconButton>
           <IconButton label="Thoát về màn chọn bé" onClick={() => { void flushNow(); clearLastChild(); goto('home'); }}>
             🚪
           </IconButton>

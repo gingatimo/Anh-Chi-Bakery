@@ -249,7 +249,7 @@ function ParentPanel() {
   const levels = useGame((s) => s.levels);
   const stickers = useGame((s) => s.stickers);
   const day = useGame((s) => s.day);
-  const goto = useGame((s) => s.goto);
+  const closeParent = useGame((s) => s.closeParent);
   const setSession = useGame((s) => s.setSession);
   const setRest = useGame((s) => s.setRest);
   const setDailyMinutes = useGame((s) => s.setDailyMinutes);
@@ -276,7 +276,7 @@ function ParentPanel() {
     <div className="scroll" style={{ minHeight: '100dvh', maxHeight: '100dvh', padding: '14px 16px 40px' }}>
       <div style={{ maxWidth: 620, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <IconButton label="Về màn chọn bé" onClick={() => goto('home')}>←</IconButton>
+          <IconButton label="Thoát" onClick={closeParent}>←</IconButton>
           <h1 style={{ fontSize: 24 }}>Khu phụ huynh</h1>
         </div>
 
@@ -383,7 +383,7 @@ function ParentPanel() {
 export function Parent() {
   const pin = useGame((s) => s.settings.parentPin);
   const setParentPin = useGame((s) => s.setParentPin);
-  const goto = useGame((s) => s.goto);
+  const closeParent = useGame((s) => s.closeParent);
   const [unlocked, setUnlocked] = useState(false);
   const [recovering, setRecovering] = useState(false);
 
@@ -400,7 +400,7 @@ export function Parent() {
           setUnlocked(true);
         }}
         onForgot={() => setRecovering(true)}
-        onBack={() => goto('home')}
+        onBack={closeParent}
       />
     );
   }

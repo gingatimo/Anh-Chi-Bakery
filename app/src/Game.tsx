@@ -23,6 +23,7 @@ import { Shop } from './screens/Shop';
 import { Decorate } from './screens/Decorate';
 import { Tasks } from './screens/Tasks';
 import { Parent } from './screens/Parent';
+import { ParentAccessButton } from './ui/ParentAccessButton';
 
 const GAME_PHASES = ['hub', 'serve', 'lunch', 'activity', 'summary', 'reveal', 'book', 'shop', 'decorate', 'tasks'];
 
@@ -103,11 +104,17 @@ export function Game() {
     }
   })();
 
+  // Nút "Bố mẹ" nổi trên các màn bé đang CHƠI DỞ (không có lối ra sẵn) → ba mẹ luôn vào được.
+  const showParentBtn = ['serve', 'lunch', 'activity', 'summary', 'reveal'].includes(view);
+
   return (
-    <AnimatePresence mode="wait">
-      <motion.div key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }} style={{ minHeight: '100dvh' }}>
-        {screen}
-      </motion.div>
-    </AnimatePresence>
+    <>
+      {showParentBtn && <ParentAccessButton />}
+      <AnimatePresence mode="wait">
+        <motion.div key={view} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }} style={{ minHeight: '100dvh' }}>
+          {screen}
+        </motion.div>
+      </AnimatePresence>
+    </>
   );
 }

@@ -34,6 +34,7 @@ export function ChildSwitcher() {
     try {
       await pushManagement(session.user.id).catch(() => {}); // lưu bé hiện tại (không đè gameplay)
       await pullChild(row.id, session.user.id); // nạp bé mới (fresh), giữ nguyên phase 'parent'
+      useGame.setState({ returnPhase: null }); // đổi bé → thoát Khu phụ huynh về Home (khỏi resume nhầm bé cũ)
       setRows(await listChildren(session.user.id)); // làm mới tên/lớp
     } finally {
       setBusy(false);

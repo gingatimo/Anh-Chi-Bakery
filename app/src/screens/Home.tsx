@@ -17,6 +17,7 @@ type SaveHint = { childPin?: string | null; avatar?: { apron?: string } };
 export function Home() {
   const { session } = useSession();
   const goto = useGame((s) => s.goto);
+  const openParent = useGame((s) => s.openParent);
   const beginAddChild = useGame((s) => s.beginAddChild);
   const addingChild = useGame((s) => s.addingChild);
   const parentPin = useGame((s) => s.settings.parentPin);
@@ -77,7 +78,7 @@ export function Home() {
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
         <header style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
           <h1 style={{ fontSize: 24, flex: 1 }}>Tiệm của các bé</h1>
-          <IconButton label="Khu phụ huynh" onClick={() => { sfx.tap(); goto('parent'); }}>
+          <IconButton label="Khu phụ huynh" onClick={() => { sfx.tap(); openParent(); }}>
             ⚙️
           </IconButton>
         </header>
