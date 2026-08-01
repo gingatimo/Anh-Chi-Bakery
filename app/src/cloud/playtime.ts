@@ -37,6 +37,18 @@ export function refreshPlayTime() {
   void tick(0);
 }
 
+/** AWAIT tổng giây chơi hôm nay (server) — để ENFORCE trần NGAY khi vào (không để
+ *  bé lọt vào game lúc playSeconds chưa nạp xong). Lỗi/không có supabase → 0. */
+export async function fetchTodaySeconds(childId: string): Promise<number> {
+  if (!supabase || !childId) return 0;
+  try {
+    const { data } = await supabase.rpc('add_play_time', { p_child: childId, p_delta: 0 });
+    return typeof data === 'number' ? data : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /** Bật đo giờ (một lần khi app khởi động). */
 export function initPlayTime() {
   if (inited || !supabase) return;

@@ -7,7 +7,7 @@
 import { supabase } from './supabase';
 import { useGame, resumePhase, gameDay } from '../game/store';
 import { setLastChild } from './lastChild';
-import { refreshPlayTime } from './playtime';
+import { refreshPlayTime, fetchTodaySeconds } from './playtime';
 
 type S = ReturnType<typeof useGame.getState>;
 
@@ -29,8 +29,10 @@ function snapshot() {
     counters: s.counters,
     settings: s.settings,
     daily: s.daily,
-    // ngày đang chơi dở (DB là nguồn chân lý → đa thiết bị cũng resume đúng chỗ)
-    phase: s.phase,
+    // ngày đang chơi dở (DB là nguồn chân lý → đa thiết bị cũng resume đúng chỗ).
+    // Overlay Khu phụ huynh (👪) giữa ván → lưu màn GAME bên dưới (returnPhase), KHÔNG
+    // lưu 'parent' (kẻo reload mất chỗ serve → nhảy về hub, mỗi lần reload một kiểu).
+    phase: s.phase === 'parent' ? s.returnPhase ?? 'hub' : s.phase,
     plan: s.plan,
     beatIndex: s.beatIndex,
     stepIndex: s.stepIndex,
@@ -148,9 +150,14 @@ export async function pullChild(
   // resume = máy này CHƠI bé; không resume (đổi tab Khu phụ huynh) = QUẢN LÝ → managing.
   const patch: Partial<S> = { ...snap, childId: data.id, started: true, managing: !opts?.resume };
   if (opts?.resume) {
-    patch.phase = resumePhase(snap); // 'serve'/'lunch' nếu đang dở, else 'hub'
     patch.childUnlocked = false; // vào lại phải qua PIN riêng của bé (nếu có)
     setLastChild(data.id); // nhớ bé này → reload vào thẳng màn chơi
+    // ENFORCE TRẦN THỜI GIAN NGAY khi vào: nạp tổng giây hôm nay (AWAIT — không để bé
+    // lọt vào game lúc playSeconds=0). Quá trần → 'hub' (đóng cửa); dưới trần → resume.
+    const secs = await fetchTodaySeconds(data.id);
+    patch.playSeconds = secs;
+    const cap = snap.settings?.dailyMinutes ?? null;
+    patch.phase = cap != null && secs >= cap * 60 ? 'hub' : resumePhase(snap);
   } else {
     delete patch.phase; // đừng để phase của bé kéo phụ huynh ra khỏi Khu phụ huynh
   }
@@ -158,7 +165,7 @@ export async function pullChild(
   // Thưởng nhiệm vụ nằm ở ledger RIÊNG (play.task_rewards), không trong save_state →
   // nạp lại: tổng xu thưởng + nhiệm vụ đã duyệt hôm nay.
   useGame.setState(await loadRewards(data.id, parentId, gameDay()));
-  refreshPlayTime(); // nạp tổng phút hôm nay (server) → enforce trần đúng ngay khi vào
+  if (!opts?.resume) refreshPlayTime(); // quản lý: nạp giây cho báo cáo (resume đã await ở trên)
   return 'found';
 }
 

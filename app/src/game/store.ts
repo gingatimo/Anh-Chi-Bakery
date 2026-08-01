@@ -607,8 +607,9 @@ export const useGame = create<GameState>()(
         counters: s.counters,
         settings: s.settings,
         daily: s.daily,
-        // ngày đang chơi dở → reload resume đúng chỗ (hàm diagnose bị JSON bỏ, an toàn)
-        phase: s.phase,
+        // ngày đang chơi dở → reload resume đúng chỗ (hàm diagnose bị JSON bỏ, an toàn).
+        // Overlay 'parent' (👪) giữa ván → lưu màn game bên dưới (returnPhase), khỏi mất chỗ.
+        phase: s.phase === 'parent' ? s.returnPhase ?? 'hub' : s.phase,
         plan: s.plan,
         beatIndex: s.beatIndex,
         stepIndex: s.stepIndex,

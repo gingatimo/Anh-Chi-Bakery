@@ -54,6 +54,7 @@ export function Game() {
       if (!ready) return 'loading';
       if (!session) return 'login';
       if (resuming && !started) return 'loading'; // đang tự nạp bé gần nhất
+      if (!started && getLastChild()) return 'loading'; // CÓ con trỏ bé → sắp auto-resume; đừng chớp Home rồi mới nhảy
       if (phase === 'parent') return 'parent';
       if (GAME_PHASES.includes(phase)) return gamePhase();
       return 'home'; // 'home' / 'welcome' / mặc định → board chọn bé
