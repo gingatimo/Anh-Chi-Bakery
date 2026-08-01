@@ -45,14 +45,14 @@ function snapshot() {
 export async function pushSnapshot(parentId: string): Promise<void> {
   if (!supabase) throw new Error('Chưa cấu hình Supabase');
   const s = useGame.getState();
-  let childId = s.childId;
-  if (!childId) {
-    childId = crypto.randomUUID();
-    useGame.setState({ childId });
-  }
+  // KHÔNG có hồ sơ bé đang chơi → KHÔNG tự sinh UUID mới. Trước đây mint ở đây tạo
+  // HỒ SƠ PHANTOM (state mặc định "Tiệm Bánh Anh Chi") mỗi khi push lúc childId rỗng
+  // (vd ChildSwitcher lưu-trước-khi-đổi khi chưa chọn bé) → lặp bé. Bé thật luôn có
+  // childId từ startGame/pullChild.
+  if (!s.childId) return;
   const { error } = await supabase.from('child_profiles').upsert(
     {
-      id: childId,
+      id: s.childId,
       parent_id: parentId,
       ten_hien_thi: s.shopName, // biệt danh/tên tiệm — KHÔNG phải tên thật (9.8)
       ten_tiem: s.shopName,

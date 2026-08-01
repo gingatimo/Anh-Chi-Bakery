@@ -54,7 +54,8 @@ export function TaskManager() {
                 borderRadius: 14,
                 background: raised ? 'var(--butter)' : 'var(--bg-sunk)',
                 color: raised ? 'var(--ink)' : 'var(--text)',
-                boxShadow: raised ? '0 0 0 2px var(--butter-dark, rgba(0,0,0,0.06))' : 'none',
+                // bé đã báo → VIỀN đậm rõ (không chỉ dựa vào nền) cho dễ nhận biết
+                boxShadow: raised ? '0 0 0 3px var(--peach)' : 'none',
               }}
             >
               <span style={{ fontSize: 26, lineHeight: 1 }}>{t.emoji}</span>
