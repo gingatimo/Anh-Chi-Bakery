@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '../game/store';
 import { loadPlayHistory } from '../cloud/playtime';
+import { flushNow } from '../cloud/autosave';
 import { SESSION_LABEL, type SessionPreset } from '../game/days';
 import { STICKERS } from '../assets/svg/Sticker';
 import { BigButton, IconButton, Panel } from '../ui/kit';
@@ -321,7 +322,7 @@ function ParentPanel() {
             value={settings.dailyMinutes ?? 0}
             options={[30, 60, 90, 0]}
             labelOf={(n) => (n === 0 ? 'Không giới hạn' : `${n} phút`)}
-            onPick={(n) => setDailyMinutes(n === 0 ? null : n)}
+            onPick={(n) => { setDailyMinutes(n === 0 ? null : n); void flushNow(); }}
           />
           <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: '8px 0 0' }}>Hết giờ → tiệm đóng cửa (cho bé xong khách đang phục vụ rồi nghỉ).</p>
 
@@ -331,11 +332,11 @@ function ParentPanel() {
             options={SESSIONS}
             labelOf={(s) => SESSION_LABEL[s].name}
             descOf={(s) => SESSION_LABEL[s].desc}
-            onPick={setSession}
+            onPick={(s) => { setSession(s); void flushNow(); }}
           />
 
           <div style={{ fontWeight: 700, margin: '18px 0 8px' }}>Thời gian nghỉ giữa buổi</div>
-          <OptionRow value={settings.restSeconds} options={REST_OPTIONS} labelOf={(n) => `${n / 60} phút`} onPick={setRest} />
+          <OptionRow value={settings.restSeconds} options={REST_OPTIONS} labelOf={(n) => `${n / 60} phút`} onPick={(n) => { setRest(n); void flushNow(); }} />
         </Panel>
 
         {/* Âm thanh & giao diện */}

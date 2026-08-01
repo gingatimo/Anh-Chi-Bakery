@@ -22,6 +22,9 @@ export function initAutosave() {
     const s = useGame.getState();
     if (!s.started || !s.childId) return; // chưa có hồ sơ bé đang chơi → chưa lưu
     if (timer) clearTimeout(timer);
+    // Trong Khu phụ huynh / máy quản lý: đổi cài đặt xong F5 phải kịp lưu (prod
+    // localStorage no-op → chỉ DB giữ) → đẩy NHANH; gameplay thì gộp 1.5s như cũ.
+    const delay = s.phase === 'parent' || s.managing ? 250 : 1500;
     timer = setTimeout(async () => {
       const { data } = await supabase!.auth.getSession();
       const uid = data.session?.user.id;
@@ -31,7 +34,7 @@ export function initAutosave() {
       } catch {
         /* offline / lỗi mạng — lần thay đổi kế tiếp sẽ thử lại */
       }
-    }, 1500);
+    }, delay);
   });
 
   // Reload/đóng tab/ẩn app → đẩy NGAY thay đổi còn treo trong debounce, kẻo mất
