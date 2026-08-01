@@ -1,9 +1,10 @@
 /** S13 + S14 — Cổng phụ huynh (thiết kế mục 8, 9.7). Mở bằng PIN 4 số. Chứa báo
  * cáo gọn, cài đặt độ dài phiên & nghỉ mắt, âm thanh/giao diện, xuất/xoá dữ liệu.
  * Trẻ không bao giờ thấy màn tiền thật — mọi thứ nhạy cảm nằm sau PIN. */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '../game/store';
+import { loadPlayHistory } from '../cloud/playtime';
 import { SESSION_LABEL, type SessionPreset } from '../game/days';
 import { STICKERS } from '../assets/svg/Sticker';
 import { BigButton, IconButton, Panel } from '../ui/kit';
@@ -191,6 +192,57 @@ function OptionRow<T extends string | number>({
   );
 }
 
+/** Báo cáo thời gian chơi (server-authoritative): hôm nay + 7 ngày gần nhất. */
+function PlayTimeReport() {
+  const { session } = useSession();
+  const childId = useGame((s) => s.childId);
+  const playSeconds = useGame((s) => s.playSeconds);
+  const dailyMinutes = useGame((s) => s.settings.dailyMinutes);
+  const [hist, setHist] = useState<{ day: string; seconds: number }[]>([]);
+
+  useEffect(() => {
+    if (!session || !childId) { setHist([]); return; }
+    loadPlayHistory(childId, session.user.id).then(setHist).catch(() => setHist([]));
+  }, [session, childId, playSeconds]);
+
+  const todayMin = Math.round(playSeconds / 60);
+  const over = dailyMinutes != null && playSeconds >= dailyMinutes * 60;
+  const pct = dailyMinutes ? Math.min(100, Math.round((playSeconds / (dailyMinutes * 60)) * 100)) : 0;
+  const maxSec = Math.max(60, playSeconds, ...hist.map((h) => h.seconds));
+
+  return (
+    <div style={{ background: 'var(--bg-sunk)', borderRadius: 14, padding: '12px 14px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <span className="tnum" style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-display)', color: over ? 'var(--rose-dark)' : 'var(--text)' }}>{todayMin} phút</span>
+        <span style={{ color: 'var(--text-soft)', fontSize: 14 }}>hôm nay{dailyMinutes ? ` / ${dailyMinutes} phút` : ' · không giới hạn'}</span>
+      </div>
+      {dailyMinutes != null && (
+        <div style={{ height: 8, borderRadius: 999, background: 'rgba(74,59,50,0.12)', marginTop: 8, overflow: 'hidden' }}>
+          <div style={{ width: `${pct}%`, height: '100%', background: over ? 'var(--rose)' : 'var(--sage)' }} />
+        </div>
+      )}
+      {hist.length > 0 && (
+        <>
+          <div style={{ color: 'var(--text-soft)', fontSize: 13, margin: '12px 0 6px' }}>7 ngày gần nhất (phút)</div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 56 }}>
+            {[...hist].reverse().map((h) => {
+              const barH = Math.max(4, Math.round((h.seconds / maxSec) * 42));
+              const md = h.day.split('-').slice(1).join('/'); // M/D
+              return (
+                <div key={h.day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                  <span className="tnum" style={{ fontSize: 11, color: 'var(--text-soft)' }}>{Math.round(h.seconds / 60)}</span>
+                  <div style={{ width: '100%', maxWidth: 24, height: barH, borderRadius: 4, background: 'var(--sage)' }} />
+                  <span style={{ fontSize: 10, color: 'var(--text-soft)' }}>{md}</span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ParentPanel() {
   const settings = useGame((s) => s.settings);
   const counters = useGame((s) => s.counters);
@@ -200,10 +252,7 @@ function ParentPanel() {
   const goto = useGame((s) => s.goto);
   const setSession = useGame((s) => s.setSession);
   const setRest = useGame((s) => s.setRest);
-  const setSessionsPerDay = useGame((s) => s.setSessionsPerDay);
-  const grantBonusSession = useGame((s) => s.grantBonusSession);
-  const sessionsLeft = useGame((s) => s.sessionsLeft);
-  const daily = useGame((s) => s.daily);
+  const setDailyMinutes = useGame((s) => s.setDailyMinutes);
   const toggleSound = useGame((s) => s.toggleSound);
   const toggleTheme = useGame((s) => s.toggleTheme);
   const resetAll = useGame((s) => s.resetAll);
@@ -258,22 +307,25 @@ function ParentPanel() {
         {/* Nhiệm vụ hằng ngày — giao việc thật, duyệt để thưởng xu */}
         <TaskManager />
 
-        {/* Cài đặt thời gian */}
+        {/* Theo dõi + cài đặt thời gian */}
         <Panel style={{ marginBottom: 16 }}>
-          <h3 style={{ marginBottom: 4 }}>Thời gian chơi</h3>
-          <p style={{ color: 'var(--text-soft)', fontSize: 14, marginBottom: 14 }}>Bé chỉ thấy “số khách”, không thấy đồng hồ — không tạo áp lực thời gian.</p>
+          <h3 style={{ marginBottom: 4 }}>⏱ Thời gian chơi</h3>
+          <p style={{ color: 'var(--text-soft)', fontSize: 14, marginBottom: 14 }}>
+            Đo theo <strong style={{ color: 'var(--text)' }}>đồng hồ máy chủ</strong> — bé chỉnh giờ máy không lách được. Bé chỉ thấy “số khách”, không thấy đồng hồ.
+          </p>
 
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Số lượt chơi mỗi ngày</div>
-          <OptionRow value={settings.sessionsPerDay} options={[1, 2, 3]} labelOf={(n) => `${n} lượt`} onPick={setSessionsPerDay} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', margin: '10px 0 2px' }}>
-            <span style={{ color: 'var(--text-soft)', fontSize: 14 }}>Hôm nay còn {sessionsLeft()} lượt (đã chơi {daily.used}).</span>
-            <button onClick={grantBonusSession} style={{ color: 'var(--sage-dark)', fontWeight: 700, textDecoration: 'underline' }}>
-              + Tặng thêm 1 lượt
-            </button>
-          </div>
-          <p style={{ color: 'var(--text-soft)', fontSize: 13, marginBottom: 18 }}>Tặng thêm lượt được ghi lại để bố mẹ tự thấy tần suất nhượng bộ (bản đầy đủ).</p>
+          <PlayTimeReport />
 
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Độ dài một buổi chơi</div>
+          <div style={{ fontWeight: 700, margin: '16px 0 8px' }}>Trần thời gian mỗi ngày</div>
+          <OptionRow
+            value={settings.dailyMinutes ?? 0}
+            options={[30, 60, 90, 0]}
+            labelOf={(n) => (n === 0 ? 'Không giới hạn' : `${n} phút`)}
+            onPick={(n) => setDailyMinutes(n === 0 ? null : n)}
+          />
+          <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: '8px 0 0' }}>Hết giờ → tiệm đóng cửa (cho bé xong khách đang phục vụ rồi nghỉ).</p>
+
+          <div style={{ fontWeight: 700, margin: '18px 0 8px' }}>Độ dài một buổi chơi</div>
           <OptionRow
             value={settings.session}
             options={SESSIONS}

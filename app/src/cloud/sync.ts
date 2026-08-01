@@ -7,6 +7,7 @@
 import { supabase } from './supabase';
 import { useGame, resumePhase, gameDay } from '../game/store';
 import { setLastChild } from './lastChild';
+import { refreshPlayTime } from './playtime';
 
 type S = ReturnType<typeof useGame.getState>;
 
@@ -157,6 +158,7 @@ export async function pullChild(
   // Thưởng nhiệm vụ nằm ở ledger RIÊNG (play.task_rewards), không trong save_state →
   // nạp lại: tổng xu thưởng + nhiệm vụ đã duyệt hôm nay.
   useGame.setState(await loadRewards(data.id, parentId, gameDay()));
+  refreshPlayTime(); // nạp tổng phút hôm nay (server) → enforce trần đúng ngay khi vào
   return 'found';
 }
 

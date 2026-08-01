@@ -26,7 +26,7 @@ export function Hub() {
   const toggleSound = useGame((s) => s.toggleSound);
   const toggleTheme = useGame((s) => s.toggleTheme);
   const refreshDaily = useGame((s) => s.refreshDaily);
-  const sessionsLeft = useGame((s) => s.sessionsLeft);
+  const playSeconds = useGame((s) => s.playSeconds);
   const reduce = useReducedMotion();
 
   useEffect(() => {
@@ -34,11 +34,12 @@ export function Hub() {
   }, [refreshDaily]);
 
   void daily; // để re-render khi số lượt trong ngày đổi
-  const closed = sessionsLeft() <= 0;
+  // ĐÓNG CỬA theo TRẦN THỜI GIAN (server) — hết phút/ngày thì nghỉ (chống chỉnh-giờ).
+  const closed = settings.dailyMinutes != null && playSeconds >= settings.dailyMinutes * 60;
   const tasksTodo = tasks.filter((t) => !approvedToday.includes(t.id)).length; // nhiệm vụ chưa duyệt hôm nay
 
   const mapSays = closed
-    ? 'Tiệm nghỉ hôm nay rồi, mai mình mở nhé!'
+    ? 'Hết giờ chơi hôm nay rồi, mai mình chơi tiếp nhé! 🌙'
     : day === 1
     ? 'Mình khai trương thôi nào!'
     : 'Hôm nay có khách đặt bánh sinh nhật đấy!';
@@ -118,7 +119,7 @@ export function Hub() {
       <div style={{ position: 'relative', zIndex: 3, display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', padding: '10px 14px 22px' }}>
         {closed ? (
           <BigButton tone="sky" disabled>
-            🌙 Tiệm nghỉ hôm nay
+            🌙 Hết giờ hôm nay
           </BigButton>
         ) : (
           <motion.div animate={reduce ? {} : { scale: [1, 1.04, 1] }} transition={{ repeat: Infinity, duration: 1.6 }}>

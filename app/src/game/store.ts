@@ -105,7 +105,8 @@ interface GameState {
     theme: 'light' | 'dark';
     session: SessionPreset; // độ dài MỘT lượt chơi (phụ huynh chỉnh)
     restSeconds: number; // thời gian nghỉ mắt giữa lượt
-    sessionsPerDay: number; // số lượt chơi mỗi ngày thật
+    sessionsPerDay: number; // (cũ) số lượt/ngày — không còn là giới hạn chính; giữ để tương thích
+    dailyMinutes: number | null; // TRẦN phút/ngày (null = không giới hạn) — giới hạn CHÍNH, đo theo server
     parentPin: string | null; // PIN cổng phụ huynh (4 số)
   };
   // cưỡng chế giới hạn theo ngày (thiết kế 9.7)
@@ -129,6 +130,7 @@ interface GameState {
   notice: string | null; // băng-rôn thông báo tạm (vd ba mẹ duyệt nhiệm vụ qua realtime)
   managing: boolean; // máy này đang QUẢN LÝ bé (mở từ Khu phụ huynh) chứ không phải chơi
   //  → chỉ ghi field quản lý (nhiệm vụ/cài đặt), GIỮ nguyên vị trí chơi của máy bé (Finding 1)
+  playSeconds: number; // tổng giây chơi HÔM NAY theo SERVER (từ play.add_play_time; đo giờ chống chỉnh-giờ)
 
   // ── actions ──
   startGame: (shopName: string, avatar: AvatarConfig, lop: 3 | 4) => void;
@@ -161,6 +163,9 @@ interface GameState {
   setSession: (session: SessionPreset) => void;
   setRest: (seconds: number) => void;
   setSessionsPerDay: (n: number) => void;
+  setDailyMinutes: (m: number | null) => void; // đặt trần phút/ngày (null = không giới hạn)
+  timeUp: () => boolean; // đã hết trần thời gian hôm nay chưa
+  timeLeftMinutes: () => number | null; // phút còn lại hôm nay (null = không giới hạn)
   setParentPin: (pin: string | null) => void;
   setChildPin: (pin: string | null) => void; // đặt/xoá PIN riêng của bé đang chọn
   unlockChild: () => void; // đã nhập đúng PIN của bé → cho vào
@@ -246,7 +251,7 @@ export const useGame = create<GameState>()(
       rewardXu: 0,
       approvedToday: [],
       counters: { khach: 0, me: 0, days: 0 },
-      settings: { sound: true, theme: 'light', session: 'vua', restSeconds: 120, sessionsPerDay: 1, parentPin: null },
+      settings: { sound: true, theme: 'light', session: 'vua', restSeconds: 120, sessionsPerDay: 1, dailyMinutes: 60, parentPin: null },
       daily: { date: '', used: 0, bonus: 0 },
 
       phase: 'welcome',
@@ -265,6 +270,7 @@ export const useGame = create<GameState>()(
       childUnlocked: true,
       notice: null,
       managing: false,
+      playSeconds: 0,
 
       // Tạo hồ sơ bé MỚI: reset sạch tiến trình + childId riêng (mỗi bé một hồ sơ).
       startGame: (shopName, avatar, lop) =>
@@ -297,7 +303,7 @@ export const useGame = create<GameState>()(
 
       openShop: () => {
         get().refreshDaily();
-        if (get().sessionsLeft() <= 0) return; // tiệm đã đóng cửa hôm nay
+        if (get().timeUp()) return; // hết TRẦN THỜI GIAN hôm nay → không mở buổi mới
         const { day, levels, settings, lop } = get();
         const plan = buildDay(day, levels, settings.session, lop);
         const total = plan.beats.filter((b) => b.kind === 'customer').length;
@@ -383,6 +389,12 @@ export const useGame = create<GameState>()(
             };
           });
         };
+        // HẾT GIỜ (trần phút/ngày): khách hiện tại vừa xong ở trên → ĐÓNG buổi tại đây
+        // (không mở khách/nghỉ/hoạt động kế). "Cho xong khách đang phục vụ rồi đóng".
+        if (get().timeUp()) {
+          endDay();
+          return;
+        }
         if (nextBeat >= beats.length) {
           endDay();
           return;
@@ -525,6 +537,16 @@ export const useGame = create<GameState>()(
       setSession: (session) => set((s) => ({ settings: { ...s.settings, session } })),
       setRest: (seconds) => set((s) => ({ settings: { ...s.settings, restSeconds: seconds } })),
       setSessionsPerDay: (n) => set((s) => ({ settings: { ...s.settings, sessionsPerDay: Math.max(1, n) } })),
+      setDailyMinutes: (dailyMinutes) => set((s) => ({ settings: { ...s.settings, dailyMinutes } })),
+      timeUp: () => {
+        const s = get();
+        return s.settings.dailyMinutes != null && s.playSeconds >= s.settings.dailyMinutes * 60;
+      },
+      timeLeftMinutes: () => {
+        const s = get();
+        if (s.settings.dailyMinutes == null) return null;
+        return Math.max(0, Math.ceil((s.settings.dailyMinutes * 60 - s.playSeconds) / 60));
+      },
       setParentPin: (parentPin) => set((s) => ({ settings: { ...s.settings, parentPin } })),
       setChildPin: (childPin) => set({ childPin }),
       unlockChild: () => set({ childUnlocked: true }),

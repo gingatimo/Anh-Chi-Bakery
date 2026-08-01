@@ -4,6 +4,7 @@ import { useGame } from './game/store';
 import { setSound } from './ui/sfx';
 import { initAutosave } from './cloud/autosave';
 import { initRealtime } from './cloud/realtime';
+import { initPlayTime } from './cloud/playtime';
 import { Toast } from './ui/Toast';
 import { Gallery } from './dev/Gallery';
 import { SelfCheck } from './dev/SelfCheck';
@@ -39,6 +40,7 @@ export default function App() {
   useEffect(() => {
     initAutosave();
     initRealtime();
+    initPlayTime();
   }, []);
 
   return (
