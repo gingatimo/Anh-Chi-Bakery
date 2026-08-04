@@ -1,8 +1,9 @@
 /** S08 — tổng kết ngày. Đóng cửa diegetic, KHÔNG "Hết giờ chơi" (thiết kế 9.7). */
 import { motion } from 'framer-motion';
-import { useGame } from '../game/store';
+import { useGame, SHOP_LEVELS, ROOMS } from '../game/store';
 import { MapChar } from '../ui/MapChar';
 import { Furniture, furnitureById } from '../assets/svg/Furniture';
+import { CAKE_LABEL } from '../assets/svg/Cake';
 import { BigButton, Coin } from '../ui/kit';
 import { sfx } from '../ui/sfx';
 
@@ -12,12 +13,15 @@ export function Summary() {
   const gift = useGame((s) => s.giftFurniture);
   const promoted = useGame((s) => s.promoted);
   const lop = useGame((s) => s.lop);
+  const pendingUnlocks = useGame((s) => s.pendingUnlocks);
+  const clearUnlocks = useGame((s) => s.clearUnlocks);
   const goto = useGame((s) => s.goto);
   const addToInventory = useGame((s) => s.addToInventory);
   const giftDef = gift ? furnitureById(gift) : null;
 
   function next() {
     if (gift) addToInventory(gift); // quà vào KHO, bé tự đặt ở Trang trí
+    clearUnlocks(); // đã xem ăn mừng lên cấp → dọn cờ
     if (pending) {
       sfx.sparkle();
       goto('reveal');
@@ -47,6 +51,30 @@ export function Summary() {
             🎉 Bé giỏi quá — lên Lớp {lop} rồi! Bài toán mới đang chờ.
           </motion.div>
         )}
+
+        {/* LÊN CẤP TIỆM — mở khoá phòng + công thức bánh mới (lộ trình lớn lên) */}
+        {pendingUnlocks.map((L, i) => {
+          const lv = SHOP_LEVELS[L - 1];
+          if (!lv) return null;
+          const rooms = lv.rooms.map((id) => ROOMS.find((r) => r.id === id)?.name).filter(Boolean);
+          const cakes = lv.cakes.map((k) => CAKE_LABEL[k]);
+          return (
+            <motion.div
+              key={L}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.15 + i * 0.15, type: 'spring', stiffness: 220, damping: 18 }}
+              style={{ background: 'var(--rose)', color: 'var(--ink)', borderRadius: 14, padding: '12px 16px', marginBottom: 16, textAlign: 'left' }}
+            >
+              <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-display)', textAlign: 'center' }}>
+                🎉 Tiệm lên Cấp {L}!
+              </div>
+              <div style={{ textAlign: 'center', fontWeight: 700, marginBottom: 8 }}>“{lv.name}”</div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>🪴 Phòng mới: {rooms.join(', ')}</div>
+              <div style={{ fontWeight: 700, fontSize: 14, marginTop: 4 }}>🧁 Công thức mới: {cakes.join(', ')}</div>
+            </motion.div>
+          );
+        })}
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginBottom: gift ? 20 : 26 }}>
           <div style={{ background: 'var(--bg-sunk)', borderRadius: 16, padding: '14px 22px', minWidth: 120 }}>

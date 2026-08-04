@@ -53,9 +53,9 @@ export interface Levels {
 let uid = 0;
 const nid = () => `c${uid++}`;
 
-function orderCakesFor(n: number): CakeKind[] {
+function orderCakesFor(n: number, kinds: readonly CakeKind[]): CakeKind[] {
   const cakes: CakeKind[] = [];
-  for (let i = 0; i < n; i++) cakes.push(pick(CAKE_KINDS));
+  for (let i = 0; i < n; i++) cakes.push(pick(kinds));
   return cakes;
 }
 
@@ -104,13 +104,14 @@ const prepLabel = (s: SkillId) =>
     ? 'Chia bánh vào hộp'
     : 'Làm bánh cho khách';
 
-/** Một khách ngày thường: làm bánh / chia hộp (B) → tính tiền (A4) → thối tiền (A6 kéo). */
-function normalCustomer(sched: QuestionScheduler, levels: Levels, lop: 3 | 4): CustomerPlan {
+/** Một khách ngày thường: làm bánh / chia hộp (B) → tính tiền (A4) → thối tiền (A6 kéo).
+ *  `kinds` = các loại bánh ĐÃ MỞ theo cấp tiệm (lộ trình) — khách chỉ đặt trong đó. */
+function normalCustomer(sched: QuestionScheduler, levels: Levels, lop: 3 | 4, kinds: readonly CakeKind[]): CustomerPlan {
   const bakeSkill = bakeSkillForGrade(lop);
   const bake = sched.next(bakeSkill, levels.B, lop);
   const total = sched.next('A4', levels.A, lop);
   const items = total.context!.items!;
-  const cakes = orderCakesFor(items.length);
+  const cakes = orderCakesFor(items.length, kinds);
   const given = smallestNoteAbove(total.answer);
   const change = generateChangeDrag(levels.A, given - total.answer, given);
 
@@ -200,7 +201,13 @@ export function customerCountFor(day: number, session: SessionPreset = 'vua'): n
   return day <= 3 ? p.warmup : p.full;
 }
 
-export function buildDay(day: number, levels: Levels, session: SessionPreset = 'vua', lop: 3 | 4 = 3): DayPlan {
+export function buildDay(
+  day: number,
+  levels: Levels,
+  session: SessionPreset = 'vua',
+  lop: 3 | 4 = 3,
+  cakes: readonly CakeKind[] = CAKE_KINDS
+): DayPlan {
   const sched = new QuestionScheduler();
   if (day === 1) {
     return { day, khaitruong: true, beats: [{ kind: 'customer', c: khaitruongCustomer() }] };
@@ -210,7 +217,7 @@ export function buildDay(day: number, levels: Levels, session: SessionPreset = '
   const beats: Beat[] = [];
   let actIdx = 0;
   for (let i = 0; i < n; i++) {
-    beats.push({ kind: 'customer', c: normalCustomer(sched, levels, lop) });
+    beats.push({ kind: 'customer', c: normalCustomer(sched, levels, lop, cakes) });
     const isLast = i === n - 1;
     // Nghỉ trưa ưu tiên; còn lại xen hoạt động sau mỗi 3 khách (không sau khách cuối).
     if (i === lunchAfter - 1) {

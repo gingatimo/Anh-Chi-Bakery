@@ -3,7 +3,7 @@
  * sticker, trang trí) vẫn mở — không bao giờ lấy lại thứ bé đã đạt. */
 import { useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { useGame } from '../game/store';
+import { useGame, shopLevelFor, nextLevelFor, SHOP_LEVELS } from '../game/store';
 import { flushNow } from '../cloud/autosave';
 import { clearLastChild } from '../cloud/lastChild';
 import { ShopScene } from '../assets/svg/Scene';
@@ -28,7 +28,15 @@ export function Hub() {
   const toggleTheme = useGame((s) => s.toggleTheme);
   const refreshDaily = useGame((s) => s.refreshDaily);
   const playSeconds = useGame((s) => s.playSeconds);
+  const khach = useGame((s) => s.counters.khach);
   const reduce = useReducedMotion();
+
+  // Lộ trình lớn lên của tiệm: cấp hiện tại + tiến độ tới cấp sau.
+  const level = shopLevelFor(khach);
+  const levelName = SHOP_LEVELS[level - 1].name;
+  const { next, need } = nextLevelFor(khach);
+  const curMin = SHOP_LEVELS[level - 1].minKhach;
+  const levelPct = next ? Math.min(100, Math.round(((khach - curMin) / (next.minKhach - curMin)) * 100)) : 100;
 
   useEffect(() => {
     refreshDaily();
@@ -94,6 +102,40 @@ export function Hub() {
         >
           {shopName}
         </motion.div>
+      </div>
+
+      {/* huy hiệu CẤP TIỆM + tiến độ — bấm để xem Lộ trình lớn lên của tiệm */}
+      <div style={{ position: 'relative', zIndex: 2, display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+        <motion.button
+          onClick={() => goto('roadmap')}
+          whileHover={reduce ? undefined : { y: -2, scale: 1.03 }}
+          whileTap={reduce ? undefined : { scale: 0.97 }}
+          aria-label={`Cấp tiệm ${level} — ${levelName}. Xem lộ trình`}
+          title="Xem lộ trình lớn lên của tiệm"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+            background: 'var(--bg-panel)',
+            borderRadius: 18,
+            padding: '8px 18px',
+            boxShadow: 'var(--shadow-soft)',
+            minWidth: 240,
+            maxWidth: '90%',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', fontWeight: 800, fontFamily: 'var(--font-display)', fontSize: 16 }}>
+            <span>⭐ Cấp {level}</span>
+            <span style={{ color: 'var(--text-soft)', fontWeight: 700, fontSize: 14 }}>· {levelName}</span>
+            <span style={{ marginLeft: 2, fontSize: 14 }}>🗺️</span>
+          </div>
+          <div style={{ height: 8, borderRadius: 999, background: 'var(--bg-sunk)', overflow: 'hidden' }}>
+            <div style={{ width: `${levelPct}%`, height: '100%', background: 'var(--rose-dark)', borderRadius: 999 }} />
+          </div>
+          <div className="tnum" style={{ fontSize: 12, color: 'var(--text-soft)', fontWeight: 700, textAlign: 'center' }}>
+            {next ? `Còn ${need} khách → Cấp ${next.level}` : '🎉 Tiệm 5 sao — cấp cao nhất!'}
+          </div>
+        </motion.button>
       </div>
 
       {/* nội thất đã đặt — lớp phủ toàn khung (đồng nhất với màn Trang trí) */}

@@ -10,7 +10,7 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { motion, useMotionValue, useReducedMotion } from 'framer-motion';
-import { ROOMS, useGame, type Placed } from '../game/store';
+import { ROOMS, useGame, shopLevelFor, unlockedRoomsFor, roomUnlockLevel, type Placed } from '../game/store';
 import { furnitureById, Furniture, type FurnitureDef } from '../assets/svg/Furniture';
 import { ShopScene } from '../assets/svg/Scene';
 import { BigButton, IconButton } from '../ui/kit';
@@ -26,7 +26,11 @@ export function Decorate() {
   const movePlaced = useGame((s) => s.movePlaced);
   const removePlaced = useGame((s) => s.removePlaced);
   const evening = useGame((s) => s.settings.theme === 'dark');
+  const khach = useGame((s) => s.counters.khach);
   const reduce = !!useReducedMotion();
+
+  // Phòng MỞ KHOÁ theo cấp tiệm (lộ trình lớn lên) — phòng chưa mở hiện 🔒.
+  const unlockedRooms = useMemo(() => new Set(unlockedRoomsFor(shopLevelFor(khach))), [khach]);
 
   const frameRef = useRef<HTMLDivElement>(null);
   const [room, setRoom] = useState<number>(0);
@@ -93,16 +97,20 @@ export function Decorate() {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         {ROOMS.map((r) => {
           const active = r.id === room;
+          const locked = !unlockedRooms.has(r.id);
           const n = placed.filter((p) => p.room === r.id).length;
           return (
             <button
               key={r.id}
+              disabled={locked}
               onClick={() => {
+                if (locked) return; // phòng chưa mở khoá theo cấp tiệm
                 sfx.tap();
                 setRoom(r.id);
                 setSelected(null);
               }}
               aria-pressed={active}
+              title={locked ? `Mở ở Cấp ${roomUnlockLevel(r.id)}` : r.name}
               style={{
                 minHeight: 44,
                 padding: '10px 18px',
@@ -114,30 +122,51 @@ export function Decorate() {
                 background: active ? 'var(--sage)' : 'var(--bg-panel)',
                 border: active ? '3px solid var(--sage-dark)' : '3px solid transparent',
                 boxShadow: active ? 'var(--shadow)' : 'var(--shadow-soft)',
+                opacity: locked ? 0.55 : 1,
+                cursor: locked ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 8,
               }}
             >
+              {locked && <span aria-hidden>🔒</span>}
               {r.name}
-              {n > 0 && (
+              {locked ? (
                 <span
-                  className="tnum"
                   style={{
-                    minWidth: 22,
                     height: 22,
-                    padding: '0 6px',
+                    padding: '0 8px',
                     borderRadius: 999,
-                    background: active ? 'var(--ink)' : 'var(--bg-sunk)',
-                    color: active ? 'var(--paper)' : 'var(--text-soft)',
-                    fontSize: 13,
+                    background: 'var(--peach)',
+                    color: 'var(--ink)',
+                    fontSize: 12,
                     fontWeight: 800,
                     display: 'grid',
                     placeItems: 'center',
                   }}
                 >
-                  {n}
+                  Cấp {roomUnlockLevel(r.id)}
                 </span>
+              ) : (
+                n > 0 && (
+                  <span
+                    className="tnum"
+                    style={{
+                      minWidth: 22,
+                      height: 22,
+                      padding: '0 6px',
+                      borderRadius: 999,
+                      background: active ? 'var(--ink)' : 'var(--bg-sunk)',
+                      color: active ? 'var(--paper)' : 'var(--text-soft)',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      display: 'grid',
+                      placeItems: 'center',
+                    }}
+                  >
+                    {n}
+                  </span>
+                )
               )}
             </button>
           );

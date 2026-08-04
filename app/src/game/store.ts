@@ -13,6 +13,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { buildDay, type DayPlan, type CustomerPlan, type Step, type Levels, type SessionPreset, type ActivityKind } from './days';
 import { STICKERS } from '../assets/svg/Sticker';
 import { furnitureById } from '../assets/svg/Furniture';
+import type { CakeKind } from '../assets/svg/Cake';
 import { supabaseConfigured } from '../cloud/supabase';
 
 export type Phase =
@@ -27,6 +28,7 @@ export type Phase =
   | 'shop'
   | 'decorate'
   | 'tasks'
+  | 'roadmap' // lộ trình lớn lên của tiệm (xem cấp + mở khoá)
   | 'activity' // hoạt động thư giãn xen giữa (không toán)
   | 'parent';
 
@@ -61,6 +63,64 @@ export const ROOMS = [
   { id: 5, name: 'Phòng ngủ' }, // phòng ngủ của bé
   { id: 6, name: 'Phòng ngủ Mập' },
 ] as const;
+
+/** ── LỘ TRÌNH LỚN LÊN CỦA TIỆM (Bakery progression) ──
+ *  Cấp tiệm suy ra từ TỔNG khách đã phục vụ (counters.khach) — cộng dồn, HỒI TỐ:
+ *  bé đã phục vụ nhiều thì lên cấp cao ngay, không mất phòng/bánh nào. Mỗi cấp mở
+ *  thêm PHÒNG trang trí + CÔNG THỨC bánh (khách chỉ đặt bánh đã mở). Cấp cuối = đủ
+ *  7 phòng + 8 bánh (bằng hiện trạng). `rooms`/`cakes` = thứ MỚI mở ở cấp đó. */
+export interface ShopLevel {
+  level: number;
+  name: string;
+  minKhach: number; // đạt cấp này khi tổng khách ≥ minKhach
+  rooms: number[]; // id phòng MỞ MỚI ở cấp này
+  cakes: CakeKind[]; // loại bánh MỞ MỚI ở cấp này
+}
+
+export const SHOP_LEVELS: ShopLevel[] = [
+  { level: 1, name: 'Tiệm nhỏ mới mở', minKhach: 0, rooms: [0, 1], cakes: ['cupcake', 'cookie', 'donut'] },
+  { level: 2, name: 'Có tiếng trong xóm', minKhach: 8, rooms: [2], cakes: ['croissant'] },
+  { level: 3, name: 'Khách quen đông vui', minKhach: 20, rooms: [3], cakes: ['roll'] },
+  { level: 4, name: 'Tiệm bánh nổi tiếng', minKhach: 40, rooms: [4], cakes: ['macaron'] },
+  { level: 5, name: 'Thợ bánh cừ khôi', minKhach: 70, rooms: [5], cakes: ['tart'] },
+  { level: 6, name: 'Tiệm bánh 5 sao', minKhach: 110, rooms: [6], cakes: ['loaf'] },
+];
+
+export const MAX_SHOP_LEVEL = SHOP_LEVELS.length;
+
+/** Cấp tiệm theo tổng khách đã phục vụ — cấp cao nhất có minKhach ≤ khach (≥1). */
+export function shopLevelFor(khach: number): number {
+  let lv = 1;
+  for (const s of SHOP_LEVELS) if (khach >= s.minKhach) lv = s.level;
+  return lv;
+}
+
+/** Danh sách id phòng đã mở ở cấp `level` (gộp mọi cấp ≤ level). */
+export function unlockedRoomsFor(level: number): number[] {
+  return SHOP_LEVELS.filter((s) => s.level <= level).flatMap((s) => s.rooms);
+}
+
+/** Danh sách loại bánh đã mở ở cấp `level` (gộp mọi cấp ≤ level; luôn ≥3). */
+export function unlockedCakesFor(level: number): CakeKind[] {
+  return SHOP_LEVELS.filter((s) => s.level <= level).flatMap((s) => s.cakes);
+}
+
+/** Cấp MỞ KHOÁ một phòng (để hiện "Mở ở Cấp N"). Không thuộc lộ trình → MAX+1. */
+export function roomUnlockLevel(roomId: number): number {
+  return SHOP_LEVELS.find((s) => s.rooms.includes(roomId))?.level ?? MAX_SHOP_LEVEL + 1;
+}
+
+/** Cấp kế tiếp + số khách còn thiếu (cho thanh tiến độ). next=null nếu đã tối đa. */
+export function nextLevelFor(khach: number): { next: ShopLevel | null; need: number } {
+  const next = SHOP_LEVELS.find((s) => s.minKhach > khach) ?? null;
+  return { next, need: next ? next.minKhach - khach : 0 };
+}
+
+/** seenLevel khi NẠP hồ sơ: save cũ chưa có field → coi như ĐÃ ở cấp hiện tại (theo
+ *  khách) để KHÔNG bắn dồn "lên cấp" cho các cấp bé đã qua. Chỉ cấp MỚI mới ăn mừng. */
+export function initialSeenLevel(snap: { seenLevel?: number; counters?: { khach?: number } }): number {
+  return typeof snap.seenLevel === 'number' ? snap.seenLevel : shopLevelFor(snap.counters?.khach ?? 0);
+}
 
 interface DayResult {
   served: number;
@@ -100,6 +160,7 @@ interface GameState {
   rewardXu: number; // TỔNG xu thưởng nhiệm vụ (từ ledger DB) — TÁCH khỏi xu chơi để không đua
   approvedToday: string[]; // id nhiệm vụ ĐÃ DUYỆT hôm nay (suy từ ledger; thay lastDone)
   counters: { khach: number; me: number; days: number };
+  seenLevel: number; // cấp tiệm CAO NHẤT đã ăn mừng (để phát hiện lên cấp mới)
   settings: {
     sound: boolean;
     theme: 'light' | 'dark';
@@ -132,6 +193,7 @@ interface GameState {
   //  → chỉ ghi field quản lý (nhiệm vụ/cài đặt), GIỮ nguyên vị trí chơi của máy bé (Finding 1)
   playSeconds: number; // tổng giây chơi HÔM NAY theo SERVER (từ play.add_play_time; đo giờ chống chỉnh-giờ)
   returnPhase: Phase | null; // vào Khu phụ huynh từ đâu → thoát ra quay lại đúng đó (khỏi phá ván bé)
+  pendingUnlocks: number[]; // cấp VỪA lên trong lần kết ngày này → màn Tổng kết ăn mừng (không persist)
 
   // ── actions ──
   startGame: (shopName: string, avatar: AvatarConfig, lop: 3 | 4) => void;
@@ -169,6 +231,8 @@ interface GameState {
   setDailyMinutes: (m: number | null) => void; // đặt trần phút/ngày (null = không giới hạn)
   timeUp: () => boolean; // đã hết trần thời gian hôm nay chưa
   timeLeftMinutes: () => number | null; // phút còn lại hôm nay (null = không giới hạn)
+  shopLevel: () => number; // cấp tiệm hiện tại (theo tổng khách đã phục vụ)
+  clearUnlocks: () => void; // xoá pendingUnlocks sau khi bé xem ăn mừng lên cấp
   setParentPin: (pin: string | null) => void;
   setChildPin: (pin: string | null) => void; // đặt/xoá PIN riêng của bé đang chọn
   unlockChild: () => void; // đã nhập đúng PIN của bé → cho vào
@@ -254,6 +318,7 @@ export const useGame = create<GameState>()(
       rewardXu: 0,
       approvedToday: [],
       counters: { khach: 0, me: 0, days: 0 },
+      seenLevel: 1,
       settings: { sound: true, theme: 'light', session: 'vua', restSeconds: 120, sessionsPerDay: 1, dailyMinutes: 60, parentPin: null },
       daily: { date: '', used: 0, bonus: 0 },
 
@@ -275,6 +340,7 @@ export const useGame = create<GameState>()(
       managing: false,
       playSeconds: 0,
       returnPhase: null,
+      pendingUnlocks: [],
 
       // Tạo hồ sơ bé MỚI: reset sạch tiến trình + childId riêng (mỗi bé một hồ sơ).
       startGame: (shopName, avatar, lop) =>
@@ -299,6 +365,8 @@ export const useGame = create<GameState>()(
           rewardXu: 0,
           approvedToday: [],
           counters: { khach: 0, me: 0, days: 0 },
+          seenLevel: 1, // bé mới bắt đầu ở Cấp 1
+          pendingUnlocks: [],
           daily: { date: '', used: 0, bonus: 0 },
           phase: 'hub',
         }),
@@ -308,8 +376,10 @@ export const useGame = create<GameState>()(
       openShop: () => {
         get().refreshDaily();
         if (get().timeUp()) return; // hết TRẦN THỜI GIAN hôm nay → không mở buổi mới
-        const { day, levels, settings, lop } = get();
-        const plan = buildDay(day, levels, settings.session, lop);
+        const { day, levels, settings, lop, counters } = get();
+        // khách chỉ đặt bánh ĐÃ MỞ theo cấp tiệm (lộ trình lớn lên)
+        const cakes = unlockedCakesFor(shopLevelFor(counters.khach));
+        const plan = buildDay(day, levels, settings.session, lop, cakes);
         const total = plan.beats.filter((b) => b.kind === 'customer').length;
         set({
           plan,
@@ -376,6 +446,11 @@ export const useGame = create<GameState>()(
           const gift = cur.day === 1 ? 'plant' : null;
           // Lên lớp khi TOÀN BỘ kỹ năng lớp hiện tại đạt mastery (thiết kế 3.6)
           const promote = cur.lop === 3 && cur.levels.A >= 5 && cur.levels.B >= 5;
+          // LÊN CẤP TIỆM: khách đã cộng ở trên → so cấp mới với cấp đã ăn mừng.
+          const newLevel = shopLevelFor(cur.counters.khach);
+          const seen = initialSeenLevel(cur);
+          const unlocked: number[] = [];
+          for (let L = seen + 1; L <= newLevel; L++) unlocked.push(L);
           const today = gameDay();
           set((s) => {
             const d = s.daily.date === today ? s.daily : { date: today, used: 0, bonus: 0 };
@@ -385,6 +460,8 @@ export const useGame = create<GameState>()(
               lop: promote ? 4 : s.lop,
               promoted: promote,
               counters: { ...s.counters, days: s.counters.days + 1 },
+              seenLevel: Math.max(seen, newLevel),
+              pendingUnlocks: unlocked,
               daily: { ...d, used: d.used + 1 }, // đã dùng 1 lượt hôm nay
               collected: [...s.collected, ...grantCatalog(s.collected, 3)], // tặng sticker sưu tầm
               pendingSticker: sticker,
@@ -554,6 +631,8 @@ export const useGame = create<GameState>()(
         if (s.settings.dailyMinutes == null) return null;
         return Math.max(0, Math.ceil((s.settings.dailyMinutes * 60 - s.playSeconds) / 60));
       },
+      shopLevel: () => shopLevelFor(get().counters.khach),
+      clearUnlocks: () => set({ pendingUnlocks: [] }),
       setParentPin: (parentPin) => set((s) => ({ settings: { ...s.settings, parentPin } })),
       setChildPin: (childPin) => set({ childPin }),
       unlockChild: () => set({ childUnlocked: true }),
@@ -605,6 +684,7 @@ export const useGame = create<GameState>()(
         rewardXu: s.rewardXu, // dev: giữ thưởng cục bộ (prod nạp lại từ ledger DB)
         approvedToday: s.approvedToday,
         counters: s.counters,
+        seenLevel: s.seenLevel, // cấp tiệm đã ăn mừng (khỏi bắn lại "lên cấp")
         settings: s.settings,
         daily: s.daily,
         // ngày đang chơi dở → reload resume đúng chỗ (hàm diagnose bị JSON bỏ, an toàn).
@@ -622,7 +702,8 @@ export const useGame = create<GameState>()(
       // gộp sâu settings để save cũ (thiếu key mới) vẫn có mặc định
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<GameState>;
-        return { ...current, ...p, settings: { ...current.settings, ...(p.settings ?? {}) } };
+        // save cũ chưa có seenLevel → coi như đã ở cấp hiện tại (khỏi ăn mừng dồn)
+        return { ...current, ...p, seenLevel: initialSeenLevel(p), settings: { ...current.settings, ...(p.settings ?? {}) } };
       },
       // Khi khôi phục cache:
       //  • Prod (có Supabase, đa con): về HOME (board chọn bé). Bé chọn hồ sơ →

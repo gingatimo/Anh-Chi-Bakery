@@ -22,10 +22,11 @@ import { StickerBook } from './screens/StickerBook';
 import { Shop } from './screens/Shop';
 import { Decorate } from './screens/Decorate';
 import { Tasks } from './screens/Tasks';
+import { Roadmap } from './screens/Roadmap';
 import { Parent } from './screens/Parent';
 import { ParentAccessButton } from './ui/ParentAccessButton';
 
-const GAME_PHASES = ['hub', 'serve', 'lunch', 'activity', 'summary', 'reveal', 'book', 'shop', 'decorate', 'tasks'];
+const GAME_PHASES = ['hub', 'serve', 'lunch', 'activity', 'summary', 'reveal', 'book', 'shop', 'decorate', 'tasks', 'roadmap'];
 
 export function Game() {
   const started = useGame((s) => s.started);
@@ -98,6 +99,8 @@ export function Game() {
         return <Decorate />;
       case 'tasks':
         return <Tasks />;
+      case 'roadmap':
+        return <Roadmap />;
       case 'parent':
         return <Parent />;
       default:

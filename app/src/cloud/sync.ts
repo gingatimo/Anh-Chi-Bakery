@@ -5,7 +5,7 @@
  * bản đầy đủ (schema chuẩn hoá + hợp nhất theo bảng) là việc của M2 (9.4, 9.5).
  */
 import { supabase } from './supabase';
-import { useGame, resumePhase, gameDay } from '../game/store';
+import { useGame, resumePhase, gameDay, initialSeenLevel } from '../game/store';
 import { setLastChild } from './lastChild';
 import { refreshPlayTime, fetchTodaySeconds } from './playtime';
 
@@ -27,6 +27,7 @@ function snapshot() {
     inventory: s.inventory,
     tasks: s.tasks,
     counters: s.counters,
+    seenLevel: s.seenLevel, // cấp tiệm đã ăn mừng (lộ trình lớn lên)
     settings: s.settings,
     daily: s.daily,
     // ngày đang chơi dở (DB là nguồn chân lý → đa thiết bị cũng resume đúng chỗ).
@@ -81,7 +82,7 @@ export async function pullSnapshot(parentId: string): Promise<boolean> {
   const row = data?.[0];
   if (!row) return false;
   const snap = (row.save_state ?? {}) as Partial<S>;
-  useGame.setState({ ...snap, childId: row.id as string, started: true });
+  useGame.setState({ ...snap, childId: row.id as string, started: true, seenLevel: initialSeenLevel(snap) });
   return true;
 }
 
@@ -116,7 +117,7 @@ export async function listChildren(parentId: string): Promise<ChildRow[]> {
 /** Nạp hồ sơ một bé (đã chọn) vào máy này để chơi. */
 export function activateChild(row: ChildRow) {
   const snap = (row.save_state ?? {}) as Partial<S>;
-  useGame.setState({ ...snap, childId: row.id, started: true, addingChild: false, childUnlocked: false, phase: 'hub' });
+  useGame.setState({ ...snap, childId: row.id, started: true, addingChild: false, childUnlocked: false, phase: 'hub', seenLevel: initialSeenLevel(snap) });
 }
 
 /** Xoá hẳn hồ sơ một bé khỏi DB (dùng khi "chơi lại từ đầu"). */
@@ -149,6 +150,7 @@ export async function pullChild(
   const snap = (data.save_state ?? {}) as Partial<S>;
   // resume = máy này CHƠI bé; không resume (đổi tab Khu phụ huynh) = QUẢN LÝ → managing.
   const patch: Partial<S> = { ...snap, childId: data.id, started: true, managing: !opts?.resume };
+  patch.seenLevel = initialSeenLevel(snap); // save cũ chưa có → coi như đã ở cấp hiện tại
   if (opts?.resume) {
     patch.childUnlocked = false; // vào lại phải qua PIN riêng của bé (nếu có)
     setLastChild(data.id); // nhớ bé này → reload vào thẳng màn chơi
